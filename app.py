@@ -7,18 +7,11 @@ st.title("JJMUP Water Supply Report Generator")
 
 uploaded_file = st.file_uploader("Upload JJMUP Excel file", type=["xls", "xlsx"])
 if uploaded_file:
-    def read_source(src_path) -> pd.DataFrame:
-        try:
-            return pd.read_excel(src_path, engine="openpyxl")
-        except Exception:
-            pass
-        try:
-            return pd.read_excel(src_path, engine="xlrd")
-        except Exception:
-            pass
-        html = uploaded_file.read().decode("utf-8", errors="ignore")
-        tables = pd.read_html(html)
-        return max(tables, key=lambda t: t.shape[0])
+    def read_source(uploaded_file) -> pd.DataFrame:
+    try:
+        return pd.read_excel(uploaded_file, engine="openpyxl")
+    except Exception:
+        return pd.read_excel(uploaded_file, engine="xlrd")
 
     df = read_source(uploaded_file)
 
