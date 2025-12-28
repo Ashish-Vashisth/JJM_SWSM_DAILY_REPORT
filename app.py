@@ -2,18 +2,23 @@ import streamlit as st
 import pandas as pd
 import re
 from datetime import datetime
+import os
 
 st.set_page_config(page_title="JJMUP Report Generator", layout="centered")
 st.title("💧 JJMUP Water Supply Report Generator")
 
-st.markdown("Upload your JJMUP Excel file (.xls or .xlsx) to generate the daily report.")
+st.markdown("Upload your JJMUP Excel file (.xls or .xlsx) to generate the daily water supply report.")
 
 uploaded_file = st.file_uploader("Choose Excel file", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
-        # Read Excel file
-        df = pd.read_excel(uploaded_file)
+        # Detect file extension and choose engine
+        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+        if file_extension == ".xls":
+            df = pd.read_excel(uploaded_file, engine="xlrd")
+        else:
+            df = pd.read_excel(uploaded_file, engine="openpyxl")
 
         # Flatten MultiIndex columns if present
         if isinstance(df.columns, pd.MultiIndex):
@@ -79,4 +84,3 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"❌ Error processing file: {e}")
-
