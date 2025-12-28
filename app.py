@@ -45,14 +45,17 @@ if uploaded_file:
                     return c
             raise KeyError(f"Missing column with any of: {needles}")
 
+        def match_exact_column(target_fragments):
+            for c, cn in norm.items():
+                if all(frag in cn for frag in target_fragments):
+                    return c
+            raise KeyError(f"Missing column with fragments: {target_fragments}")
+
         # Identify required columns
         scheme_id_col = find_col_contains_any("schemeid")
         scheme_name_col = find_col_contains_any("schemename")
         daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
-
-        # Explicitly use the column from your file for yesterday
-        yest_prod_col = "OHT Water Supply (Meter3)"
-
+        yest_prod_col = match_exact_column(["oht", "watersupply", "meter3"])
         today_prod_col = find_col_contains_any("today", "waterproduction", "meter3", "production")
 
         # Build working DataFrame
