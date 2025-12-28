@@ -48,11 +48,8 @@ if uploaded_file:
         scheme_id_col = find_col_contains_any("schemeid")
         scheme_name_col = find_col_contains_any("schemename")
         daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
-        yest_prod_col = [c for c, cn in norm.items() if "oht" in cn and "watersupply" in cn and "meter3" in cn and "yesterday" in cn]
-        if not yest_prod_col:
-            raise KeyError("Missing column with fragments: 'OHT Water Supply (Meter3) Yesterday'")
-        yest_prod_col = yest_prod_col[0]
-        today_prod_col = find_col_contains_any("today", "waterproduction", "meter3")
+        yest_prod_col = find_col_contains_any("oht", "watersupply", "meter3", "yesterday", "supply")
+        today_prod_col = find_col_contains_any("today", "waterproduction", "meter3", "production")
 
         # Build working DataFrame
         work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col]].copy()
