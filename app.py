@@ -45,10 +45,14 @@ if uploaded_file:
                     return c
             raise KeyError(f"Missing column with any of: {needles}")
 
+        # Identify required columns
         scheme_id_col = find_col_contains_any("schemeid")
         scheme_name_col = find_col_contains_any("schemename")
         daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
-        yest_prod_col = find_col_contains_any("oht", "watersupply", "meter3", "yesterday", "supply")
+
+        # Explicitly use the column from your file for yesterday
+        yest_prod_col = "OHT Water Supply (Meter3)"
+
         today_prod_col = find_col_contains_any("today", "waterproduction", "meter3", "production")
 
         # Build working DataFrame
