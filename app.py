@@ -13,31 +13,46 @@ uploaded_file = st.file_uploader("Choose Excel file", type=["xls", "xlsx"])
 
 if uploaded_file:
     try:
-        # Detect file extension and choose engine
+        # Detect file extension
         file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-        if file_extension == ".xls":
-            df = pd.read_excel(uploaded_file, engine="xlrd")
-        else:
+
+        # Try reading Excel normally
+        if file_extension == ".xlsx":
             df = pd.read_excel(uploaded_file, engine="openpyxl")
+        elif file_extension == ".xls":
+            try:
+                df = pd.read_excel(uploaded_file, engine="xlrd")
+            except Exception:
+                content = uploaded_file.read().decode("utf-8", errors="ignore")
+                tables = pd.read_html(content)
+                df = max(tables, key=lambda t: t.shape[0])
+        else:
+            raise ValueError("Unsupported file format")
 
         # Flatten MultiIndex columns if present
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [" ".join([str(x) for x in tup if pd.notna(x)]).strip() for tup in df.columns]
 
+        # Show available columns for debugging
+        st.write("📋 Available columns:", list(df.columns))
+
         # Normalize column names
         norm = {c: re.sub(r"\s+", "", str(c)).strip().lower() for c in df.columns}
-        def find_col_contains(*needles: str) -> str:
-            for c, cn in norm.items():
-                if all(n in cn for n in needles):
-                    return c
-            raise KeyError(f"Missing column with fragments: {needles}")
 
-        # Identify required columns
-        scheme_id_col = find_col_contains("schemeid")
-        scheme_name_col = find_col_contains("schemename")
-        daily_demand_col = find_col_contains("waterdemand", "meter3", "daily")
-        yest_prod_col = [c for c, cn in norm.items() if "oht" in cn and "watersupply" in cn and "meter3" in cn and "yesterday" in cn][0]
-        today_prod_col = find_col_contains("today", "waterproduction", "meter3")
+        def find_col_contains_any(*needles: str) -> str:
+            for c, cn in norm.items():
+                if any(n in cn for n in needles):
+                    return c
+            raise KeyError(f"Missing column with any of: {needles}")
+
+        scheme_id_col = find_col_contains_any("schemeid")
+        scheme_name_col = find_col_contains_any("schemename")
+        daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
+        yest_prod_col = [c for c, cn in norm.items() if "oht" in cn and "watersupply" in cn and "meter3" in cn and "yesterday" in cn]
+        if not yest_prod_col:
+            raise KeyError("Missing column with fragments: 'OHT Water Supply (Meter3) Yesterday'")
+        yest_prod_col = yest_prod_col[0]
+        today_prod_col = find_col_contains_any("today", "waterproduction", "meter3")
 
         # Build working DataFrame
         work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col]].copy()
