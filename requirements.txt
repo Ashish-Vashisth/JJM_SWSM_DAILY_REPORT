@@ -1,6 +1,8 @@
-streamlit
-pandas
-openpyxl
-xlrd==1.2.0
-lxml
-html5lib
+
+streamlit>=1.31
+pandas>=2.1
+openpyxl>=3.1
+lxml>=4.9
+beautifulsoup4>=4.12
+html5lib>=1.1
+``
