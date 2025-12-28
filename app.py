@@ -3,6 +3,9 @@ import pandas as pd
 import re
 from datetime import datetime
 import os
+from openpyxl import load_workbook
+from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="JJMUP Report Generator", layout="centered")
 st.title("💧 JJMUP Water Supply Report Generator")
@@ -41,26 +44,22 @@ if uploaded_file:
 
         def find_col_contains_any(*needles: str) -> str:
             for c, cn in norm.items():
-                if any(n in cn for n in needles):
+                if all(n in cn for n in needles):
                     return c
-            raise KeyError(f"Missing column with any of: {needles}")
+            raise KeyError(f"Missing column with fragments: {needles}")
 
-        # Identify required columns (force exact match for Scheme Name)
+        # Identify required columns
         scheme_id_col = find_col_contains_any("schemeid")
-        scheme_name_col = "Scheme Name"   # ✅ force exact match
+        scheme_name_col = "Scheme Name" if "Scheme Name" in df.columns else find_col_contains_any("schemename")
         daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
 
         # Yesterday production — exact match
-        yest_prod_col = None
-        for c in df.columns:
-            if str(c).strip().lower() == "oht water supply (meter3)".lower():
-                yest_prod_col = c
-                break
+        yest_prod_col = next((c for c in df.columns if str(c).strip().lower() == "oht water supply (meter3)".lower()), None)
         if yest_prod_col is None:
             raise KeyError("Could not find column: 'OHT Water Supply (Meter3)'")
 
         today_prod_col = find_col_contains_any("today", "waterproduction", "meter3", "production")
-        last_date_col = find_col_contains_any("lastdatareceivedate")
+        last_date_col = "Last Data Receive Date" if "Last Data Receive Date" in df.columns else find_col_contains_any("lastdatareceivedate")
 
         # Build working DataFrame
         work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col, last_date_col]].copy()
@@ -86,7 +85,7 @@ if uploaded_file:
         less75_df.insert(0, "SR.No.", range(1, len(less75_df) + 1))
         less75_df = less75_df.drop(columns=["Today Water Production (m^3)"])
 
-        # Sheet 2: ZERO/INACTIVE — ✅ keep Scheme Name + Last Data Receive Date
+        # Sheet 2: ZERO/INACTIVE — keep Scheme Name + Last Data Receive Date
         zero_df = work_df[
             (work_df["Yesterday Water Production (m^3)"].fillna(0) == 0) &
             (work_df["Today Water Production (m^3)"].fillna(0) == 0)
@@ -95,13 +94,48 @@ if uploaded_file:
         zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
 
         # Debug preview
-        st.write("🔍 Zero/Inactive preview:", zero_df.head())
+        st.write("🔍 Zero & Inactive preview:", zero_df.head())
 
         # Save Excel
         out_name = f"ZERO & LESS THAN 75 SITES {datetime.now().strftime('%Y-%m-%d')}.xlsx"
         with pd.ExcelWriter(out_name, engine="openpyxl") as w:
             less75_df.to_excel(w, sheet_name="Supplied Water <75%", index=False)
-            zero_df.to_excel(w, sheet_name="Zero/Inactive Site", index=False)
+            zero_df.to_excel(w, sheet_name="Zero & Inactive Sites", index=False)
+
+        # Apply formatting
+        wb = load_workbook(out_name)
+        thin = Side(style="thin", color="000000")
+        border_all = Border(left=thin, right=thin, top=thin, bottom=thin)
+        align_center = Alignment(horizontal="center", vertical="center", wrap_text=False)
+        align_left = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        header_font = Font(bold=True, color="000000")
+        header_fill = PatternFill("solid", fgColor="5B9BD5")
+
+        def format_sheet(ws):
+            for cell in ws[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = align_center
+                cell.border = border_all
+            maxlen = {}
+            for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                for cell in r:
+                    cell.border = border_all
+                    if cell.column == 3:  # Scheme Name column -> left
+                        cell.alignment = align_left
+                    else:
+                        cell.alignment = align_center
+                    val = "" if cell.value is None else str(cell.value)
+                    maxlen[cell.column] = max(maxlen.get(cell.column, 0), len(val))
+            for c in range(1, ws.max_column + 1):
+                header_val = str(ws.cell(row=1, column=c).value or "")
+                maxlen[c] = max(maxlen.get(c, 0), len(header_val))
+                width = maxlen.get(c, 0)
+                ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
+
+        format_sheet(wb["Supplied Water <75%"])
+        format_sheet(wb["Zero & Inactive Sites"])
+        wb.save(out_name)
 
         # Download button
         with open(out_name, "rb") as f:
