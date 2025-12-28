@@ -45,12 +45,12 @@ if uploaded_file:
                     return c
             raise KeyError(f"Missing column with any of: {needles}")
 
-        # Identify required columns
+        # Identify required columns (force exact match for Scheme Name)
         scheme_id_col = find_col_contains_any("schemeid")
-        scheme_name_col = find_col_contains_any("schemename")
+        scheme_name_col = "Scheme Name"   # ✅ force exact match
         daily_demand_col = find_col_contains_any("waterdemand", "meter3", "daily", "demand")
 
-        # Match exact column name for Yesterday Water Production
+        # Yesterday production — exact match
         yest_prod_col = None
         for c in df.columns:
             if str(c).strip().lower() == "oht water supply (meter3)".lower():
@@ -60,15 +60,17 @@ if uploaded_file:
             raise KeyError("Could not find column: 'OHT Water Supply (Meter3)'")
 
         today_prod_col = find_col_contains_any("today", "waterproduction", "meter3", "production")
+        last_date_col = find_col_contains_any("lastdatareceivedate")
 
         # Build working DataFrame
-        work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col]].copy()
+        work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col, last_date_col]].copy()
         work_df.columns = [
             "Scheme Id",
             "Scheme Name",
             "Daily Water Demand (m^3)",
             "Yesterday Water Production (m^3)",
-            "Today Water Production (m^3)"
+            "Today Water Production (m^3)",
+            "Last Data Receive Date"
         ]
 
         # Coerce numerics
@@ -84,20 +86,22 @@ if uploaded_file:
         less75_df.insert(0, "SR.No.", range(1, len(less75_df) + 1))
         less75_df = less75_df.drop(columns=["Today Water Production (m^3)"])
 
-        # Sheet 2: ZERO/INACTIVE
+        # Sheet 2: ZERO/INACTIVE — ✅ keep Scheme Name + Last Data Receive Date
         zero_df = work_df[
             (work_df["Yesterday Water Production (m^3)"].fillna(0) == 0) &
             (work_df["Today Water Production (m^3)"].fillna(0) == 0)
-        ].copy()
-        zero_df = zero_df[["Scheme Id", "Scheme Name", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]]
+        ][["Scheme Id", "Scheme Name", "Yesterday Water Production (m^3)", "Today Water Production (m^3)", "Last Data Receive Date"]].copy()
         zero_df["Site Status"] = "ZERO/INACTIVE SITE"
         zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
+
+        # Debug preview
+        st.write("🔍 Zero/Inactive preview:", zero_df.head())
 
         # Save Excel
         out_name = f"ZERO & LESS THAN 75 SITES {datetime.now().strftime('%Y-%m-%d')}.xlsx"
         with pd.ExcelWriter(out_name, engine="openpyxl") as w:
-            less75_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
-            zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
+            less75_df.to_excel(w, sheet_name="Supplied Water <75%", index=False)
+            zero_df.to_excel(w, sheet_name="Zero/Inactive Site", index=False)
 
         # Download button
         with open(out_name, "rb") as f:
