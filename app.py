@@ -30,7 +30,7 @@ def apply_branding(bg_overlay_opacity: float = 0.35, logo_width_px: int = 140, l
         [data-testid="stAppViewContainer"] {{
             background-image:
                 linear-gradient(rgba(0,0,0,{bg_overlay_opacity}), rgba(0,0,0,{bg_overlay_opacity})),
-                url("data:image/jpeg;base64,{BACKGROUND_B64}");
+                url(data:image/jpeg;base64,{LOGO_B64},{BACKGROUND_B64}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
