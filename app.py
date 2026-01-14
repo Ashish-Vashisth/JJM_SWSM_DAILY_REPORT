@@ -19,30 +19,15 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 
 
 
-def apply_branding(bg_overlay_opacity: float = 0.60):
+
+def apply_branding(
+    bg_overlay_opacity: float = 0.55,   # increase for more contrast (0.45–0.70 is typical)
+):
     st.markdown(
         f"""
         <style>
-        /* Ensure full-height layout so background covers entire viewport */
-        html, body {{
-            height: 100%;
-            min-height: 100vh;
-            margin: 0;
-            padding: 0;
-            background: transparent !important;
-        }}
-
-        /* Make outer Streamlit wrappers transparent and full-height */
-        [data-testid="stApp"] {{
-            min-height: 100vh;
-            background: transparent !important;
-        }}
-
+        /* 1) Background with stronger dark overlay */
         [data-testid="stAppViewContainer"] {{
-            min-height: 100vh;
-            background: transparent !important;
-
-            /* Background image + overlay */
             background-image:
                 linear-gradient(rgba(0,0,0,{bg_overlay_opacity}), rgba(0,0,0,{bg_overlay_opacity})),
                 url("data:image/jpeg;base64,{BACKGROUND_B64}");
@@ -52,33 +37,33 @@ def apply_branding(bg_overlay_opacity: float = 0.60):
             background-attachment: fixed;
         }}
 
-        /* Optional: hide default footer space */
-        footer {{ visibility: hidden; }}
-        header {{ background: transparent !important; }}
-
-        /* Improve readability: glass layer behind content */
+        /* 2) Glass effect card behind the main content to improve readability */
         [data-testid="stAppViewContainer"] .block-container {{
             padding-top: 2.2rem;
-            padding-bottom: 2.2rem;   /* prevents bottom looking “cut” */
             background: rgba(0, 0, 0, 0.28);
             border-radius: 14px;
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
         }}
 
-        /* Text contrast */
-        h1, h2, h3, h4, h5, h6, p, span, label {{
+        /* 3) Force text/labels to be readable */
+        h1, h2, h3, h4, h5, h6, p, span, label, div {{
             color: #F5F6F7 !important;
         }}
 
-        /* Inputs: readable */
+        /* 4) Make inputs readable (white-ish backgrounds) */
         input, textarea, select {{
             background-color: rgba(255,255,255,0.92) !important;
             color: #111 !important;
             border-radius: 10px !important;
         }}
 
-        /* File uploader box: readable */
+        /* Streamlit widgets */
+        [data-testid="stNumberInput"] input {{
+            background-color: rgba(255,255,255,0.92) !important;
+            color: #111 !important;
+        }}
+
         [data-testid="stFileUploader"] section {{
             background: rgba(255,255,255,0.15) !important;
             border-radius: 12px !important;
@@ -96,6 +81,7 @@ def apply_branding(bg_overlay_opacity: float = 0.60):
         """,
         unsafe_allow_html=True
     )
+
 
 
 
@@ -277,7 +263,7 @@ def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame) -> tuple[s
 # ---------------------------
 
 st.set_page_config(page_title="JJM SWSM Daily Report", layout="wide")
-apply_branding(bg_overlay_opacity=0.60)
+apply_branding()
 
 st.title("JJM SWSM Daily Report Generator")
 st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
