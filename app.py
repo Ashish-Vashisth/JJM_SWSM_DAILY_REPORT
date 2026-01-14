@@ -22,7 +22,6 @@ BACKGROUND_B64 = re.sub(r"\s+", "", BACKGROUND_B64)
 LOGO_B64 = re.sub(r"\s+", "", LOGO_B64)
 
 
-
 def apply_branding(bg_overlay_opacity: float = 0.35, logo_width_px: int = 140, logo_opacity: float = 0.92):
     st.markdown(
         f"""
@@ -76,7 +75,9 @@ def apply_branding(bg_overlay_opacity: float = 0.35, logo_width_px: int = 140, l
         }}
         </style>
 
-        data:image/jpeg;base64,{LOGO_B64}
+        
+data:<img>/jpeg;base64,{LOGO_B64}
+
         """,
         unsafe_allow_html=True
     )
