@@ -22,12 +22,8 @@ BACKGROUND_B64 = re.sub(r"\s+", "", BACKGROUND_B64)
 LOGO_B64 = re.sub(r"\s+", "", LOGO_B64)
 
 
-def apply_branding(bg_overlay_opacity: float = 0.30, logo_width_px: int = 220, logo_opacity: float = 0.95):
-    """
-    Applies:
-    1) full-page background image
-    2) top-left watermark logo
-    """
+
+def apply_branding(bg_overlay_opacity: float = 0.35, logo_width_px: int = 140, logo_opacity: float = 0.92):
     st.markdown(
         f"""
         <style>
@@ -42,32 +38,40 @@ def apply_branding(bg_overlay_opacity: float = 0.30, logo_width_px: int = 220, l
             background-attachment: fixed;
         }}
 
-        /* Push content down slightly so it doesn't clash with watermark */
+        /* Space so title doesn't clash with logo */
         [data-testid="stAppViewContainer"] .block-container {{
-            padding-top: 2.8rem;
+            padding-top: 3.2rem;
         }}
 
-        /* Top-left watermark logo */
+        /* Top-left logo watermark */
         ._wm_logo {{
             position: fixed;
-            top: 14px;
-            left: 18px;
+            top: 12px;
+            left: 14px;
             width: {logo_width_px}px;
+            height: auto;
             opacity: {logo_opacity};
             z-index: 9999;
-            pointer-events: none; /* does not block clicks */
+            pointer-events: none;
             user-select: none;
+
+            /* Optional badge styling (recommended for JPG logos) */
+            background: rgba(255,255,255,0.65);
+            padding: 8px 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.25);
         }}
 
-        /* Responsive logo sizing on small screens */
+        /* Responsive */
         @media (max-width: 768px) {{
             ._wm_logo {{
-                width: {max(140, int(logo_width_px * 0.7))}px;
+                width: 110px;
                 top: 10px;
                 left: 10px;
+                padding: 6px 8px;
             }}
             [data-testid="stAppViewContainer"] .block-container {{
-                padding-top: 2.4rem;
+                padding-top: 2.8rem;
             }}
         }}
         </style>
