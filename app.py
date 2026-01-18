@@ -488,7 +488,7 @@ if uploaded:
             c1.metric("SITES < threshold", len(less_df))
             c2.metric("ZERO/INACTIVE SITES", len(zero_df))
 
-            with st.expander("Preview: SUPPLIED WATER LESS THAN 75"):
+            with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
                 st.dataframe(less_df, use_container_width=True)
 
             with st.expander("Preview: ZERO(INACTIVE SITES)"):
