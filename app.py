@@ -458,14 +458,14 @@ def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame) -> tuple[s
 # Streamlit UI
 # ---------------------------
 
-st.set_page_config(page_title="JJM SWSM Daily Report", layout="wide")
+st.set_page_config(page_title="UMPESL JJM SWSM Daily Report", layout="wide")
 apply_branding()
 
 st.title("UMPESL JJM SWSM Daily Report Generator")
 st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
 
 threshold = st.number_input(
-    "Threshold (%) for LESS THAN list",
+    "Threshold (%) for SITES LESS THAN list",
     min_value=1.0,
     max_value=100.0,
     value=75.0,
@@ -485,8 +485,8 @@ if uploaded:
 
             st.success(f"Created: {out_name}")
             c1, c2 = st.columns(2)
-            c1.metric("Rows < threshold", len(less_df))
-            c2.metric("ZERO/INACTIVE rows", len(zero_df))
+            c1.metric("SITES < threshold", len(less_df))
+            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
 
             with st.expander("Preview: SUPPLIED WATER LESS THAN 75"):
                 st.dataframe(less_df, use_container_width=True)
