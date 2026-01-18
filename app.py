@@ -443,7 +443,7 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
 
 def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame) -> tuple[str, bytes]:
     date_str = datetime.now().strftime("%Y-%m-%d")
-    out_name = f"ZERO & LESS THAN 75 SITES {date_str}.xlsx"
+    out_name = f"ZERO & LESS THAN THRESHOLD SITES {date_str}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
