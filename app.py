@@ -20,9 +20,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
     st.markdown(
         f"""
         <style>
-        /* -----------------------------
-           1) Background + main container
-        ------------------------------*/
         [data-testid="stAppViewContainer"] {{
             background-image:
                 linear-gradient(rgba(0,0,0,{bg_overlay_opacity}), rgba(0,0,0,{bg_overlay_opacity})),
@@ -33,7 +30,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             background-attachment: fixed;
         }}
 
-        /* Main glass container */
         [data-testid="stAppViewContainer"] .block-container {{
             padding-top: 2.2rem;
             padding-bottom: 2rem;
@@ -44,9 +40,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             overflow: visible !important;
         }}
 
-        /* -----------------------------
-           2) Text readability
-        ------------------------------*/
         h1, h2, h3, h4, h5, h6, p, label {{
             color: #F5F6F7 !important;
         }}
@@ -54,9 +47,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             color: #F5F6F7 !important;
         }}
 
-        /* -----------------------------
-           3) Inputs
-        ------------------------------*/
         input, textarea, select {{
             background-color: rgba(255,255,255,0.95) !important;
             color: #111 !important;
@@ -67,14 +57,10 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             color: #111 !important;
         }}
 
-        /* -----------------------------
-           4) File uploader (Streamlit 1.53 safe)
-        ------------------------------*/
         .stFileUploader {{
             margin-bottom: 1.3rem !important;
         }}
 
-        /* Prevent clipping inside uploader wrappers */
         [data-testid="stFileUploader"],
         [data-testid="stFileUploader"] > div,
         [data-testid="stFileUploader"] section,
@@ -84,21 +70,18 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             height: auto !important;
         }}
 
-        /* Drop zone */
         [data-testid="stFileUploader"] section {{
             background: rgba(255,255,255,0.16) !important;
             border-radius: 12px !important;
             border: 1px solid rgba(255,255,255,0.30) !important;
             padding: 12px !important;
-            padding-bottom: 22px !important; /* room for uploaded row */
+            padding-bottom: 22px !important;
         }}
 
-        /* Uploader helper text */
         [data-testid="stFileUploader"] section * {{
             color: #F8FAFC !important;
         }}
 
-        /* Browse files button (inside uploader only) */
         [data-testid="stFileUploader"] section button {{
             background: #ffffff !important;
             color: #111111 !important;
@@ -115,15 +98,9 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             color: #111111 !important;
         }}
 
-        /* ================================
-           Uploaded file row: make FULL WIDTH
-           Streamlit 1.53 uses either stFileUploaderFile or li
-        ================================ */
-
-        /* Newer testid */
         [data-testid="stFileUploaderFile"] {{
             width: 100% !important;
-            min-width: 100% !important;   /* ✅ extend to full strip */
+            min-width: 100% !important;
             background: rgba(255, 255, 255, 0.14) !important;
             border: 1px solid rgba(255, 255, 255, 0.22) !important;
             border-radius: 12px !important;
@@ -138,10 +115,9 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             gap: 12px !important;
         }}
 
-        /* Fallback: LI row */
         [data-testid="stFileUploader"] li {{
             width: 100% !important;
-            min-width: 100% !important;   /* ✅ extend to full strip */
+            min-width: 100% !important;
             background: rgba(255,255,255,0.14) !important;
             border: 1px solid rgba(255, 255, 255, 0.22) !important;
             border-radius: 12px !important;
@@ -156,7 +132,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             gap: 12px !important;
         }}
 
-        /* Filename text (don’t force button/icon colors) */
         [data-testid="stFileUploaderFile"] span,
         [data-testid="stFileUploaderFile"] p,
         [data-testid="stFileUploaderFile"] small,
@@ -167,7 +142,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             font-weight: 600 !important;
         }}
 
-        /* Remove button box */
         [data-testid="stFileUploaderFile"] button,
         [data-testid="stFileUploader"] li button {{
             background: rgba(255,255,255,0.92) !important;
@@ -179,24 +153,18 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             padding: 0.35rem 0.6rem !important;
         }}
 
-        /* ✅ Streamlit 1.53 remove icon fix:
-           - Many icons include a background <rect>. Force it to stay transparent.
-           - Color only stroke-based shapes for the “X”.
-        */
         [data-testid="stFileUploaderFile"] button svg,
         [data-testid="stFileUploader"] li button svg {{
             width: 18px !important;
             height: 18px !important;
         }}
 
-        /* Kill background rectangles that become black squares */
         [data-testid="stFileUploaderFile"] button svg rect,
         [data-testid="stFileUploader"] li button svg rect {{
             fill: none !important;
             stroke: none !important;
         }}
 
-        /* Force the visible “X” to render using strokes */
         [data-testid="stFileUploaderFile"] button svg path,
         [data-testid="stFileUploaderFile"] button svg line,
         [data-testid="stFileUploaderFile"] button svg polyline,
@@ -210,9 +178,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             stroke-linejoin: round !important;
         }}
 
-        /* -----------------------------
-           5) Alerts
-        ------------------------------*/
         [data-testid="stAlert"] {{
             border-radius: 12px !important;
             padding: 0.75rem 1rem !important;
@@ -226,9 +191,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             font-weight: 600 !important;
         }}
 
-        /* -----------------------------
-           6) Buttons (Generate Report stays red)
-        ------------------------------*/
         .stButton > button {{
             background: #ff4b4b !important;
             color: #ffffff !important;
@@ -262,9 +224,6 @@ def apply_branding(bg_overlay_opacity: float = 0.50):
             color: #111 !important;
         }}
 
-        /* -----------------------------
-           7) Expanders
-        ------------------------------*/
         details summary {{
             background: rgba(15, 23, 42, 0.65) !important;
             border-radius: 10px !important;
@@ -474,16 +433,18 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     return out.getvalue()
 
 
-def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame, lpcd_df: pd.DataFrame) -> tuple[str, bytes]:
+def create_output_excel(
+    less_df: pd.DataFrame,
+    zero_df: pd.DataFrame,
+    lpcd_df: pd.DataFrame
+) -> tuple[str, bytes]:
+
     date_str = datetime.now().strftime("%Y-%m-%d")
-   out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
+    out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"  # ✅ use & not &amp;
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
-        # ✅ New sheet first (you can change order if you want)
         lpcd_df.to_excel(w, sheet_name="LPCD STATUS", index=False)
-
-        # Existing sheets unchanged
         less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
 
