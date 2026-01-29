@@ -384,6 +384,38 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
 
     return less_df, zero_df
 
+def build_lpcd_status(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create LPCD STATUS sheet by extracting Excel columns:
+    A, B, C, R, S, T  -> indices 0,1,2,17,18,19
+    """
+    df = flatten_columns(df)
+
+    # Ensure enough columns exist (T = 20th column -> index 19)
+    if df.shape[1] < 20:
+        raise ValueError(
+            f"Source file has only {df.shape[1]} columns. Need at least 20 columns to extract A,B,C,R,S,T."
+        )
+
+    lpcd_df = df.iloc[:, [0, 1, 2, 17, 18, 19]].copy()
+
+    # Clean, user-friendly column names (optional but recommended)
+    lpcd_df.columns = [
+        "Sno.",
+        "Scheme Id",
+        "Scheme Name",
+        "Avg LPCD (Yesterday)",
+        "Avg LPCD (Weekly)",
+        "Avg LPCD (Monthly)",
+    ]
+
+    # Convert LPCD to numeric (safe)
+    for c in ["Avg LPCD (Yesterday)", "Avg LPCD (Weekly)", "Avg LPCD (Monthly)"]:
+        lpcd_df[c] = pd.to_numeric(lpcd_df[c], errors="coerce")
+
+    return lpcd_df
+
+
 
 # ---------------------------
 # Excel writing + formatting
@@ -431,6 +463,8 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
 
     # Format sheets if present
+    if "LPCD STATUS" in wb.sheetnames:
+        format_sheet(wb["LPCD STATUS"])
     if "SUPPLIED WATER LESS THAN 75" in wb.sheetnames:
         format_sheet(wb["SUPPLIED WATER LESS THAN 75"])
     if "ZERO(INACTIVE SITES)" in wb.sheetnames:
@@ -441,12 +475,16 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     return out.getvalue()
 
 
-def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame) -> tuple[str, bytes]:
+def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame, lpcd_df: pd.DataFrame) -> tuple[str, bytes]:
     date_str = datetime.now().strftime("%Y-%m-%d")
     out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
+        # ✅ New sheet first (you can change order if you want)
+        lpcd_df.to_excel(w, sheet_name="LPCD STATUS", index=False)
+
+        # Existing sheets unchanged
         less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
 
@@ -481,12 +519,16 @@ if uploaded:
         try:
             df = read_source(uploaded)
             less_df, zero_df = build_report(df, threshold=threshold)
-            out_name, out_bytes = create_output_excel(less_df, zero_df)
+lpcd_df = build_lpcd_status(df)  # ✅ New sheet dataframe
+out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
 
             st.success(f"Created: {out_name}")
             c1, c2 = st.columns(2)
             c1.metric("SITES < threshold", len(less_df))
             c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+
+            with st.expander("Preview: LPCD STATUS"):
+                st.dataframe(lpcd_df, use_container_width=True)
 
             with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
                 st.dataframe(less_df, use_container_width=True)
