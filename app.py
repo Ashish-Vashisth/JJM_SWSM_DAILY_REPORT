@@ -476,7 +476,7 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
 
 def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame, lpcd_df: pd.DataFrame) -> tuple[str, bytes]:
     date_str = datetime.now().strftime("%Y-%m-%d")
-    out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
+   out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
@@ -514,38 +514,38 @@ uploaded = st.file_uploader("Upload JJMUP file", type=["xls", "xlsx", "xlsm"])
 if uploaded:
     st.info(f"Uploaded: {uploaded.name}")
 
-   if st.button("Generate Report", type="primary"):
-    try:
-        df = read_source(uploaded)
+    if st.button("Generate Report", type="primary"):
+        try:
+            df = read_source(uploaded)
 
-        less_df, zero_df = build_report(df, threshold=threshold)
-        lpcd_df = build_lpcd_status(df)  # ✅ New sheet dataframe
+            less_df, zero_df = build_report(df, threshold=threshold)
+            lpcd_df = build_lpcd_status(df)
 
-        out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
+            out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
 
-        st.success(f"Created: {out_name}")
-        c1, c2 = st.columns(2)
-        c1.metric("SITES < threshold", len(less_df))
-        c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+            st.success(f"Created: {out_name}")
+            c1, c2 = st.columns(2)
+            c1.metric("SITES < threshold", len(less_df))
+            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
 
-        with st.expander("Preview: LPCD STATUS"):
-            st.dataframe(lpcd_df, use_container_width=True)
+            with st.expander("Preview: LPCD STATUS"):
+                st.dataframe(lpcd_df, use_container_width=True)
 
-        with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
-            st.dataframe(less_df, use_container_width=True)
+            with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
+                st.dataframe(less_df, use_container_width=True)
 
-        with st.expander("Preview: ZERO(INACTIVE SITES)"):
-            st.dataframe(zero_df, use_container_width=True)
+            with st.expander("Preview: ZERO(INACTIVE SITES)"):
+                st.dataframe(zero_df, use_container_width=True)
 
-        st.download_button(
-            "⬇️ Download Excel Report",
-            data=out_bytes,
-            file_name=out_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+            st.download_button(
+                "⬇️ Download Excel Report",
+                data=out_bytes,
+                file_name=out_name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
-    except Exception as e:
-        st.error("Error while generating report. Please check the uploaded file format/columns.")
-        st.exception(e)
+        except Exception as e:
+            st.error("Error while generating report. Please check the uploaded file format/columns.")
+            st.exception(e)
 else:
     st.warning("Please upload the JJMUP export file to proceed.")
