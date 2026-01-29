@@ -10,7 +10,6 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
-
 # ===========================
 # Branding: Background + Top-left watermark (Base64, JPG)
 # ===========================
