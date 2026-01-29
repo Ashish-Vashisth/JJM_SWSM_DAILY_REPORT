@@ -514,36 +514,38 @@ uploaded = st.file_uploader("Upload JJMUP file", type=["xls", "xlsx", "xlsm"])
 if uploaded:
     st.info(f"Uploaded: {uploaded.name}")
 
-    if st.button("Generate Report", type="primary"):
-        try:
-            df = read_source(uploaded)
-            less_df, zero_df = build_report(df, threshold=threshold)
-lpcd_df = build_lpcd_status(df)  # ✅ New sheet dataframe
-out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
+   if st.button("Generate Report", type="primary"):
+    try:
+        df = read_source(uploaded)
 
-            st.success(f"Created: {out_name}")
-            c1, c2 = st.columns(2)
-            c1.metric("SITES < threshold", len(less_df))
-            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+        less_df, zero_df = build_report(df, threshold=threshold)
+        lpcd_df = build_lpcd_status(df)  # ✅ New sheet dataframe
 
-            with st.expander("Preview: LPCD STATUS"):
-                st.dataframe(lpcd_df, use_container_width=True)
+        out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
 
-            with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
-                st.dataframe(less_df, use_container_width=True)
+        st.success(f"Created: {out_name}")
+        c1, c2 = st.columns(2)
+        c1.metric("SITES < threshold", len(less_df))
+        c2.metric("ZERO/INACTIVE SITES", len(zero_df))
 
-            with st.expander("Preview: ZERO(INACTIVE SITES)"):
-                st.dataframe(zero_df, use_container_width=True)
+        with st.expander("Preview: LPCD STATUS"):
+            st.dataframe(lpcd_df, use_container_width=True)
 
-            st.download_button(
-                "⬇️ Download Excel Report",
-                data=out_bytes,
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+        with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
+            st.dataframe(less_df, use_container_width=True)
 
-        except Exception as e:
-            st.error("Error while generating report. Please check the uploaded file format/columns.")
-            st.exception(e)
+        with st.expander("Preview: ZERO(INACTIVE SITES)"):
+            st.dataframe(zero_df, use_container_width=True)
+
+        st.download_button(
+            "⬇️ Download Excel Report",
+            data=out_bytes,
+            file_name=out_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    except Exception as e:
+        st.error("Error while generating report. Please check the uploaded file format/columns.")
+        st.exception(e)
 else:
     st.warning("Please upload the JJMUP export file to proceed.")
