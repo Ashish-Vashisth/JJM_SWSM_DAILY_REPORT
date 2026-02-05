@@ -459,7 +459,7 @@ def create_output_excel(
 st.set_page_config(page_title="UMPESL JJM SWSM Daily Report", layout="wide")
 apply_branding()
 
-st.title("UMPESL_JJM SWSM Daily Report Generator")
+st.title("UMPESL JJM SWSM Daily Report Generator")
 st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
 
 threshold = st.number_input(
