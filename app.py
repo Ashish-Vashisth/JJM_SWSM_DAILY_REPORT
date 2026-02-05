@@ -324,38 +324,56 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
 
     work_df["Percentage"] = (work_df["Yesterday Water Production (m^3)"] / work_df["Daily Water Demand (m^3)"]) * 100
 
-    # Sheet 1 (< threshold)
+    # -------------------------
+    # Sheet 1 (< threshold) - unchanged
+    # -------------------------
     less_df = work_df[work_df["Percentage"].fillna(0) < threshold].copy()
     less_df["Supplied Water Percentage"] = f"<{threshold:g}%"
     less_df.insert(0, "SR.No.", range(1, len(less_df) + 1))
     less_df = less_df.drop(columns=["Today Water Production (m^3)"])
 
-    # Sheet 2 (ZERO/INACTIVE)
-    zero_df = work_df[
-        (work_df["Yesterday Water Production (m^3)"].fillna(0) == 0)
-        & (work_df["Today Water Production (m^3)"].fillna(0) == 0)
-    ].copy()
+    # -------------------------
+    # Sheet 2 (ZERO/INACTIVE) - FIXED
+    # -------------------------
 
-    zero_df = zero_df[["Scheme Id", "Scheme Name", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]]
-
-    # Add columns F & G initially
-    zero_df["Last Data Receive Date"] = df[last_date_col]
-    zero_df["Site Status"] = "ZERO INACTIVE SITE"
-    zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
-
-    # ✅ NEW RULE:
-    # If D and E are None/NaN for a row, blank F and G.
-    de_none_mask = (
-        zero_df["Yesterday Water Production (m^3)"].isna()
-        & zero_df["Today Water Production (m^3)"].isna()
+    # ✅ 1) Identify rows that are "blank" in D & E (both NaN)
+    de_blank = (
+        work_df["Yesterday Water Production (m^3)"].isna()
+        & work_df["Today Water Production (m^3)"].isna()
     )
-    if de_none_mask.any():
-        zero_df.loc[de_none_mask, "Last Data Receive Date"] = ""
-        zero_df.loc[de_none_mask, "Site Status"] = ""
 
-    # ✅ If ALL rows have D and E as None/NaN, drop columns F & G entirely
-    if len(zero_df) > 0 and de_none_mask.all():
-        zero_df = zero_df.drop(columns=["Last Data Receive Date", "Site Status"])
+    # ✅ 2) Ensure Scheme Id/Name are not blank/None-like
+    # (handles actual NaN as well as string "None")
+    valid_scheme = (
+        work_df["Scheme Id"].notna()
+        & work_df["Scheme Name"].notna()
+        & (work_df["Scheme Id"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Name"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Id"].astype(str).str.strip() != "")
+        & (work_df["Scheme Name"].astype(str).str.strip() != "")
+    )
+
+    # ✅ 3) Apply ZERO condition but EXCLUDE blank D&E rows
+    zero_mask = (
+        valid_scheme
+        & (~de_blank)  # <--- this prevents empty rows entering your zero_df
+        & (work_df["Yesterday Water Production (m^3)"].fillna(0) == 0)
+        & (work_df["Today Water Production (m^3)"].fillna(0) == 0)
+    )
+
+    zero_df = work_df.loc[zero_mask, [
+        "Scheme Id",
+        "Scheme Name",
+        "Yesterday Water Production (m^3)",
+        "Today Water Production (m^3)"
+    ]].copy()
+
+    # ✅ 4) Correctly align last date ONLY for selected rows (index match fix)
+    zero_df["Last Data Receive Date"] = df.loc[zero_df.index, last_date_col].values
+
+    # ✅ 5) Status + SR.No.
+    zero_df["Site Status"] = "ZERO/INACTIVE SITE"
+    zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
 
     return less_df, zero_df
 
