@@ -318,6 +318,7 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
         "Today Water Production (m^3)",
     ]
 
+    # numeric conversion
     for c in ["Daily Water Demand (m^3)", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]:
         work_df[c] = pd.to_numeric(work_df[c], errors="coerce")
 
@@ -336,9 +337,25 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
     ].copy()
 
     zero_df = zero_df[["Scheme Id", "Scheme Name", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]]
+
+    # Add columns F & G initially
     zero_df["Last Data Receive Date"] = df[last_date_col]
-    zero_df["Site Status"] = "ZERO/INACTIVE SITE"
+    zero_df["Site Status"] = "ZERO INACTIVE SITE"
     zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
+
+    # ✅ NEW RULE:
+    # If D and E are None/NaN for a row, blank F and G.
+    de_none_mask = (
+        zero_df["Yesterday Water Production (m^3)"].isna()
+        & zero_df["Today Water Production (m^3)"].isna()
+    )
+    if de_none_mask.any():
+        zero_df.loc[de_none_mask, "Last Data Receive Date"] = ""
+        zero_df.loc[de_none_mask, "Site Status"] = ""
+
+    # ✅ If ALL rows have D and E as None/NaN, drop columns F & G entirely
+    if len(zero_df) > 0 and de_none_mask.all():
+        zero_df = zero_df.drop(columns=["Last Data Receive Date", "Site Status"])
 
     return less_df, zero_df
 
