@@ -377,6 +377,37 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
 
     return less_df, zero_df
 
+def build_today_zero_sites(zero_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create TODAY ZERO SITES sheet from ZERO(INACTIVE SITES)
+    by removing Column D (Yesterday Water Production).
+    Keeps A,B,C,E,F,G intact.
+    """
+    today_zero_df = zero_df.copy()
+
+    # Prefer dropping by exact column name (most reliable)
+    if "Yesterday Water Production (m^3)" in today_zero_df.columns:
+        today_zero_df = today_zero_df.drop(columns=["Yesterday Water Production (m^3)"])
+    else:
+        # Fallback: drop the 4th column (Excel Column D) if name ever changes
+        if len(today_zero_df.columns) >= 4:
+            today_zero_df = today_zero_df.drop(columns=[today_zero_df.columns[3]])
+
+    # Ensure clean expected order (A,B,C,E,F,G)
+    desired_order = [
+        "SR.No.",
+        "Scheme Id",
+        "Scheme Name",
+        "Today Water Production (m^3)",
+        "Last Data Receive Date",
+        "Site Status",
+    ]
+    existing = [c for c in desired_order if c in today_zero_df.columns]
+    remaining = [c for c in today_zero_df.columns if c not in existing]
+    today_zero_df = today_zero_df[existing + remaining]
+
+    return today_zero_df
+
 def build_lpcd_status(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create LPCD STATUS sheet by extracting Excel columns:
@@ -462,11 +493,12 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
         format_sheet(wb["SUPPLIED WATER LESS THAN 75"])
     if "ZERO(INACTIVE SITES)" in wb.sheetnames:
         format_sheet(wb["ZERO(INACTIVE SITES)"])
+    if "TODAY ZERO SITES" in wb.sheetnames:
+        format_sheet(wb["TODAY ZERO SITES"])
 
     out = BytesIO()
     wb.save(out)
     return out.getvalue()
-
 
 def create_output_excel(
     less_df: pd.DataFrame,
@@ -475,7 +507,10 @@ def create_output_excel(
 ) -> tuple[str, bytes]:
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"  # ✅ use & not &amp;
+    out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
+
+    # ✅ NEW: build TODAY ZERO SITES (drop column D)
+    today_zero_df = build_today_zero_sites(zero_df)
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
@@ -483,9 +518,564 @@ def create_output_excel(
         less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
 
+        # ✅ NEW: extra sheet
+        today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
+
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
 
+
+
+# ---------------------------
+# Streamlit UI
+# ---------------------------
+
+st.set_page_config(page_title="UMPESL JJM SWSM Daily Report", layout="wide")
+apply_branding()
+
+st.title("UMPESL JJM SWSM Daily Report Generator")
+st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
+
+threshold = st.number_input(
+    "Threshold (%) for SITES LESS THAN list",
+    min_value=1.0,
+    max_value=100.0,
+    value=75.0,
+    step=1.0
+)
+
+uploaded = st.file_uploader("Upload JJMUP file", type=["xls", "xlsx", "xlsm"])
+
+if uploaded:
+    st.info(f"Uploaded: {uploaded.name}")
+
+    if st.button("Generate Report", type="primary"):
+        try:
+            df = read_source(uploaded)
+
+            less_df, zero_df = build_report(df, threshold=threshold)
+            lpcd_df = build_lpcd_status(df)
+
+            out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
+
+            st.success(f"Created: {out_name}")
+            c1, c2 = st.columns(2)
+            c1.metric("SITES < threshold", len(less_df))
+            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+
+           def apply_branding(bg_overlay_opacity: float = 0.50):
+    st.markdown(
+        f"""
+        <style>
+        [data-testid="stAppViewContainer"] {{
+            background-image:
+                linear-gradient(rgba(0,0,0,{bg_overlay_opacity}), rgba(0,0,0,{bg_overlay_opacity})),
+                url("data:image/jpeg;base64,{BACKGROUND_B64}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+
+        [data-testid="stAppViewContainer"] .block-container {{
+            padding-top: 2.2rem;
+            padding-bottom: 2rem;
+            background: rgba(0, 0, 0, 0.28);
+            border-radius: 14px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            overflow: visible !important;
+        }}
+
+        h1, h2, h3, h4, h5, h6, p, label {{
+            color: #F5F6F7 !important;
+        }}
+        .stMarkdown, .stText, .stTitle, .stSubheader, .stCaption {{
+            color: #F5F6F7 !important;
+        }}
+
+        input, textarea, select {{
+            background-color: rgba(255,255,255,0.95) !important;
+            color: #111 !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stNumberInput"] input {{
+            background-color: rgba(255,255,255,0.95) !important;
+            color: #111 !important;
+        }}
+
+        .stFileUploader {{
+            margin-bottom: 1.3rem !important;
+        }}
+
+        [data-testid="stFileUploader"],
+        [data-testid="stFileUploader"] > div,
+        [data-testid="stFileUploader"] section,
+        [data-testid="stFileUploader"] ul {{
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
+        }}
+
+        [data-testid="stFileUploader"] section {{
+            background: rgba(255,255,255,0.16) !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255,255,255,0.30) !important;
+            padding: 12px !important;
+            padding-bottom: 22px !important;
+        }}
+
+        [data-testid="stFileUploader"] section * {{
+            color: #F8FAFC !important;
+        }}
+
+        [data-testid="stFileUploader"] section button {{
+            background: #ffffff !important;
+            color: #111111 !important;
+            font-weight: 700 !important;
+            border-radius: 10px !important;
+            border: 1px solid rgba(0,0,0,0.18) !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
+            padding: 0.45rem 0.9rem !important;
+        }}
+        [data-testid="stFileUploader"] section button:hover {{
+            background: #f1f5f9 !important;
+        }}
+        [data-testid="stFileUploader"] section button * {{
+            color: #111111 !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] {{
+            width: 100% !important;
+            min-width: 100% !important;
+            background: rgba(255, 255, 255, 0.14) !important;
+            border: 1px solid rgba(255, 255, 255, 0.22) !important;
+            border-radius: 12px !important;
+            padding: 12px 14px !important;
+            margin-top: 12px !important;
+            min-height: 64px !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
+            overflow: visible !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+        }}
+
+        [data-testid="stFileUploader"] li {{
+            width: 100% !important;
+            min-width: 100% !important;
+            background: rgba(255,255,255,0.14) !important;
+            border: 1px solid rgba(255, 255, 255, 0.22) !important;
+            border-radius: 12px !important;
+            padding: 12px 14px !important;
+            margin-top: 12px !important;
+            min-height: 64px !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
+            overflow: visible !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] span,
+        [data-testid="stFileUploaderFile"] p,
+        [data-testid="stFileUploaderFile"] small,
+        [data-testid="stFileUploader"] li span,
+        [data-testid="stFileUploader"] li p,
+        [data-testid="stFileUploader"] li small {{
+            color: #F8FAFC !important;
+            font-weight: 600 !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] button,
+        [data-testid="stFileUploader"] li button {{
+            background: rgba(255,255,255,0.92) !important;
+            border-radius: 10px !important;
+            border: 1px solid rgba(0,0,0,0.14) !important;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.18) !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            padding: 0.35rem 0.6rem !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] button svg,
+        [data-testid="stFileUploader"] li button svg {{
+            width: 18px !important;
+            height: 18px !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] button svg rect,
+        [data-testid="stFileUploader"] li button svg rect {{
+            fill: none !important;
+            stroke: none !important;
+        }}
+
+        [data-testid="stFileUploaderFile"] button svg path,
+        [data-testid="stFileUploaderFile"] button svg line,
+        [data-testid="stFileUploaderFile"] button svg polyline,
+        [data-testid="stFileUploader"] li button svg path,
+        [data-testid="stFileUploader"] li button svg line,
+        [data-testid="stFileUploader"] li button svg polyline {{
+            fill: none !important;
+            stroke: #111 !important;
+            stroke-width: 2 !important;
+            stroke-linecap: round !important;
+            stroke-linejoin: round !important;
+        }}
+
+        [data-testid="stAlert"] {{
+            border-radius: 12px !important;
+            padding: 0.75rem 1rem !important;
+            margin: 0.6rem 0 !important;
+            overflow: visible !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.30) !important;
+            z-index: 10 !important;
+            position: relative !important;
+        }}
+        [data-testid="stAlert"] * {{
+            font-weight: 600 !important;
+        }}
+
+        .stButton > button {{
+            background: #ff4b4b !important;
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            font-size: 1.08rem !important;
+            border-radius: 14px !important;
+            padding: 0.80rem 1.45rem !important;
+            border: none !important;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.28) !important;
+        }}
+        .stButton > button:hover {{
+            background: #e63d3d !important;
+        }}
+        .stButton > button * {{
+            color: #ffffff !important;
+        }}
+
+        .stDownloadButton > button {{
+            background: rgba(255,255,255,0.92) !important;
+            color: #111 !important;
+            font-weight: 800 !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(0,0,0,0.15) !important;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.25) !important;
+            padding: 0.70rem 1.25rem !important;
+        }}
+        .stDownloadButton > button:hover {{
+            background: #ffffff !important;
+        }}
+        .stDownloadButton > button * {{
+            color: #111 !important;
+        }}
+
+        details summary {{
+            background: rgba(15, 23, 42, 0.65) !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 0.8rem !important;
+            border: 1px solid rgba(255,255,255,0.20) !important;
+            color: #f8fafc !important;
+        }}
+
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+
+
+# ---------------------------
+# Reading the uploaded file
+# ---------------------------
+def read_source(uploaded_file) -> pd.DataFrame:
+    """
+    Robust reader:
+    1) Try Excel via openpyxl (works for .xlsx/.xlsm)
+    2) If fails, try HTML-table fallback (common for some .xls exports that are HTML)
+    """
+    raw = uploaded_file.getvalue()
+
+    # Try normal Excel first
+    try:
+        return pd.read_excel(BytesIO(raw), engine="openpyxl")
+    except Exception:
+        pass
+
+    # HTML fallback
+    html = raw.decode("utf-8", errors="ignore")
+    tables = pd.read_html(StringIO(html))
+    if not tables:
+        raise ValueError("Could not parse any tables from the uploaded file.")
+    df = max(tables, key=lambda t: t.shape[0])  # largest table
+    return df
+
+
+def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [
+            " ".join([str(x) for x in tup if pd.notna(x)]).strip()
+            for tup in df.columns
+        ]
+    return df
+
+
+def normalize_columns(df: pd.DataFrame) -> dict:
+    return {c: re.sub(r"\s+", "", str(c)).strip().lower() for c in df.columns}
+
+
+def find_col_contains(norm_map: dict, *needles: str) -> str:
+    for c, cn in norm_map.items():
+        if all(n in cn for n in needles):
+            return c
+    raise KeyError(f"Missing column with fragments: {needles}")
+
+
+# ---------------------------
+# Business logic (your report)
+# ---------------------------
+def build_report(df: pd.DataFrame, threshold: float = 75.0):
+    df = flatten_columns(df)
+    norm = normalize_columns(df)
+
+    scheme_id_col = find_col_contains(norm, "schemeid")
+    scheme_name_col = find_col_contains(norm, "schemename")
+    daily_demand_col = find_col_contains(norm, "waterdemand", "meter3", "daily")
+
+    # Yesterday production (more specific)
+    yest_prod_col = None
+    for c, cn in norm.items():
+        if ("oht" in cn) and ("watersupply" in cn) and ("meter3" in cn) and ("yesterday" in cn):
+            yest_prod_col = c
+            break
+    if yest_prod_col is None:
+        raise KeyError("Could not find 'OHT Water Supply (Meter3) Yesterday' column.")
+
+    today_prod_col = find_col_contains(norm, "today", "waterproduction", "meter3")
+    last_date_col = find_col_contains(norm, "lastdatareceivedate")
+
+    work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col, today_prod_col]].copy()
+    work_df.columns = [
+        "Scheme Id",
+        "Scheme Name",
+        "Daily Water Demand (m^3)",
+        "Yesterday Water Production (m^3)",
+        "Today Water Production (m^3)",
+    ]
+
+    # numeric conversion
+    for c in ["Daily Water Demand (m^3)", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]:
+        work_df[c] = pd.to_numeric(work_df[c], errors="coerce")
+
+    work_df["Percentage"] = (work_df["Yesterday Water Production (m^3)"] / work_df["Daily Water Demand (m^3)"]) * 100
+
+    # -------------------------
+    # Sheet 1 (< threshold) - unchanged
+    # -------------------------
+    less_df = work_df[work_df["Percentage"].fillna(0) < threshold].copy()
+    less_df["Supplied Water Percentage"] = f"<{threshold:g}%"
+    less_df.insert(0, "SR.No.", range(1, len(less_df) + 1))
+    less_df = less_df.drop(columns=["Today Water Production (m^3)"])
+
+    # -------------------------
+    # Sheet 2 (ZERO/INACTIVE) - FIXED
+    # -------------------------
+
+    # ✅ 1) Identify rows that are "blank" in D & E (both NaN)
+    de_blank = (
+        work_df["Yesterday Water Production (m^3)"].isna()
+        & work_df["Today Water Production (m^3)"].isna()
+    )
+
+    # ✅ 2) Ensure Scheme Id/Name are not blank/None-like
+    # (handles actual NaN as well as string "None")
+    valid_scheme = (
+        work_df["Scheme Id"].notna()
+        & work_df["Scheme Name"].notna()
+        & (work_df["Scheme Id"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Name"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Id"].astype(str).str.strip() != "")
+        & (work_df["Scheme Name"].astype(str).str.strip() != "")
+    )
+
+    # ✅ 3) Apply ZERO condition but EXCLUDE blank D&E rows
+    zero_mask = (
+        valid_scheme
+        & (~de_blank)  # <--- this prevents empty rows entering your zero_df
+        & (work_df["Yesterday Water Production (m^3)"].fillna(0) == 0)
+        & (work_df["Today Water Production (m^3)"].fillna(0) == 0)
+    )
+
+    zero_df = work_df.loc[zero_mask, [
+        "Scheme Id",
+        "Scheme Name",
+        "Yesterday Water Production (m^3)",
+        "Today Water Production (m^3)"
+    ]].copy()
+
+    # ✅ 4) Correctly align last date ONLY for selected rows (index match fix)
+    zero_df["Last Data Receive Date"] = df.loc[zero_df.index, last_date_col].values
+
+    # ✅ 5) Status + SR.No.
+    zero_df["Site Status"] = "ZERO/INACTIVE SITE"
+    zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
+
+    return less_df, zero_df
+
+def build_today_zero_sites(zero_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create TODAY ZERO SITES sheet from ZERO(INACTIVE SITES)
+    by removing Column D (Yesterday Water Production).
+    Keeps A,B,C,E,F,G intact.
+    """
+    today_zero_df = zero_df.copy()
+
+    # Prefer dropping by exact column name (most reliable)
+    if "Yesterday Water Production (m^3)" in today_zero_df.columns:
+        today_zero_df = today_zero_df.drop(columns=["Yesterday Water Production (m^3)"])
+    else:
+        # Fallback: drop the 4th column (Excel Column D) if name ever changes
+        if len(today_zero_df.columns) >= 4:
+            today_zero_df = today_zero_df.drop(columns=[today_zero_df.columns[3]])
+
+    # Ensure clean expected order (A,B,C,E,F,G)
+    desired_order = [
+        "SR.No.",
+        "Scheme Id",
+        "Scheme Name",
+        "Today Water Production (m^3)",
+        "Last Data Receive Date",
+        "Site Status",
+    ]
+    existing = [c for c in desired_order if c in today_zero_df.columns]
+    remaining = [c for c in today_zero_df.columns if c not in existing]
+    today_zero_df = today_zero_df[existing + remaining]
+
+    return today_zero_df
+
+def build_lpcd_status(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create LPCD STATUS sheet by extracting Excel columns:
+    A, B, C, R, S, T  -> indices 0,1,2,17,18,19
+    """
+    df = flatten_columns(df)
+
+    # Ensure enough columns exist (T = 20th column -> index 19)
+    if df.shape[1] < 20:
+        raise ValueError(
+            f"Source file has only {df.shape[1]} columns. Need at least 20 columns to extract A,B,C,R,S,T."
+        )
+
+    lpcd_df = df.iloc[:, [0, 1, 2, 17, 18, 19]].copy()
+
+    # Clean, user-friendly column names (optional but recommended)
+    lpcd_df.columns = [
+        "Sno.",
+        "Scheme Id",
+        "Scheme Name",
+        "Avg LPCD (Yesterday)",
+        "Avg LPCD (Weekly)",
+        "Avg LPCD (Monthly)",
+    ]
+
+    # Convert LPCD to numeric (safe)
+    for c in ["Avg LPCD (Yesterday)", "Avg LPCD (Weekly)", "Avg LPCD (Monthly)"]:
+        lpcd_df[c] = pd.to_numeric(lpcd_df[c], errors="coerce")
+
+    return lpcd_df
+
+
+
+# ---------------------------
+# Excel writing + formatting
+# ---------------------------
+def apply_formatting(xlsx_bytes: bytes) -> bytes:
+    wb = load_workbook(BytesIO(xlsx_bytes))
+
+    thin = Side(style="thin", color="000000")
+    border_all = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=False)
+    align_left = Alignment(horizontal="left", vertical="center", wrap_text=False)
+
+    header_font = Font(bold=True, color="000000")
+    header_fill = PatternFill("solid", fgColor="5B9BD5")
+
+    def format_sheet(ws):
+        # Header row
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = align_center
+            cell.border = border_all
+
+        # Body + compute widths
+        maxlen = {}
+        for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            for cell in r:
+                cell.border = border_all
+
+                # Column 3: Scheme Name (SR.No. + Scheme Id + Scheme Name)
+                if cell.column == 3:
+                    cell.alignment = align_left
+                else:
+                    cell.alignment = align_center
+
+                val = "" if cell.value is None else str(cell.value)
+                maxlen[cell.column] = max(maxlen.get(cell.column, 0), len(val))
+
+        # Auto width
+        for c in range(1, ws.max_column + 1):
+            header_val = str(ws.cell(row=1, column=c).value or "")
+            maxlen[c] = max(maxlen.get(c, 0), len(header_val))
+            width = maxlen.get(c, 0)
+            ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
+
+    # Format sheets if present
+    if "LPCD STATUS" in wb.sheetnames:
+        format_sheet(wb["LPCD STATUS"])
+    if "SUPPLIED WATER LESS THAN 75" in wb.sheetnames:
+        format_sheet(wb["SUPPLIED WATER LESS THAN 75"])
+    if "ZERO(INACTIVE SITES)" in wb.sheetnames:
+        format_sheet(wb["ZERO(INACTIVE SITES)"])
+    if "TODAY ZERO SITES" in wb.sheetnames:
+        format_sheet(wb["TODAY ZERO SITES"])
+
+    out = BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+def create_output_excel(
+    less_df: pd.DataFrame,
+    zero_df: pd.DataFrame,
+    lpcd_df: pd.DataFrame
+) -> tuple[str, bytes]:
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
+
+    # ✅ NEW: build TODAY ZERO SITES (drop column D)
+    today_zero_df = build_today_zero_sites(zero_df)
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as w:
+        lpcd_df.to_excel(w, sheet_name="LPCD STATUS", index=False)
+        less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
+        zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
+
+        # ✅ NEW: extra sheet
+        today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
+
+    styled = apply_formatting(buffer.getvalue())
+    return out_name, styled
+
+
+
+# ---------------------------
+# Streamlit UI
+# ---------------------------
 
 # ---------------------------
 # Streamlit UI
@@ -532,6 +1122,12 @@ if uploaded:
 
             with st.expander("Preview: ZERO(INACTIVE SITES)"):
                 st.dataframe(zero_df, use_container_width=True)
+
+            # ✅ build TODAY ZERO SITES for preview
+            today_zero_df = build_today_zero_sites(zero_df)
+
+            with st.expander("Preview: TODAY ZERO SITES"):
+                st.dataframe(today_zero_df, use_container_width=True)
 
             st.download_button(
                 "⬇️ Download Excel Report",
