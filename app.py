@@ -563,7 +563,7 @@ if uploaded:
             c1.metric("SITES < threshold", len(less_df))
             c2.metric("ZERO/INACTIVE SITES", len(zero_df))
 
-           def apply_branding(bg_overlay_opacity: float = 0.50):
+     def apply_branding(bg_overlay_opacity: float = 0.50):
     st.markdown(
         f"""
         <style>
@@ -645,7 +645,8 @@ if uploaded:
             color: #111111 !important;
         }}
 
-        [data-testid="stFileUploaderFile"] {{
+        [data-testid="stFileUploaderFile"],
+        [data-testid="stFileUploader"] li {{
             width: 100% !important;
             min-width: 100% !important;
             background: rgba(255, 255, 255, 0.14) !important;
@@ -660,69 +661,6 @@ if uploaded:
             align-items: center !important;
             justify-content: space-between !important;
             gap: 12px !important;
-        }}
-
-        [data-testid="stFileUploader"] li {{
-            width: 100% !important;
-            min-width: 100% !important;
-            background: rgba(255,255,255,0.14) !important;
-            border: 1px solid rgba(255, 255, 255, 0.22) !important;
-            border-radius: 12px !important;
-            padding: 12px 14px !important;
-            margin-top: 12px !important;
-            min-height: 64px !important;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
-            overflow: visible !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            gap: 12px !important;
-        }}
-
-        [data-testid="stFileUploaderFile"] span,
-        [data-testid="stFileUploaderFile"] p,
-        [data-testid="stFileUploaderFile"] small,
-        [data-testid="stFileUploader"] li span,
-        [data-testid="stFileUploader"] li p,
-        [data-testid="stFileUploader"] li small {{
-            color: #F8FAFC !important;
-            font-weight: 600 !important;
-        }}
-
-        [data-testid="stFileUploaderFile"] button,
-        [data-testid="stFileUploader"] li button {{
-            background: rgba(255,255,255,0.92) !important;
-            border-radius: 10px !important;
-            border: 1px solid rgba(0,0,0,0.14) !important;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.18) !important;
-            min-width: 44px !important;
-            min-height: 44px !important;
-            padding: 0.35rem 0.6rem !important;
-        }}
-
-        [data-testid="stFileUploaderFile"] button svg,
-        [data-testid="stFileUploader"] li button svg {{
-            width: 18px !important;
-            height: 18px !important;
-        }}
-
-        [data-testid="stFileUploaderFile"] button svg rect,
-        [data-testid="stFileUploader"] li button svg rect {{
-            fill: none !important;
-            stroke: none !important;
-        }}
-
-        [data-testid="stFileUploaderFile"] button svg path,
-        [data-testid="stFileUploaderFile"] button svg line,
-        [data-testid="stFileUploaderFile"] button svg polyline,
-        [data-testid="stFileUploader"] li button svg path,
-        [data-testid="stFileUploader"] li button svg line,
-        [data-testid="stFileUploader"] li button svg polyline {{
-            fill: none !important;
-            stroke: #111 !important;
-            stroke-width: 2 !important;
-            stroke-linecap: round !important;
-            stroke-linejoin: round !important;
         }}
 
         [data-testid="stAlert"] {{
@@ -751,9 +689,6 @@ if uploaded:
         .stButton > button:hover {{
             background: #e63d3d !important;
         }}
-        .stButton > button * {{
-            color: #ffffff !important;
-        }}
 
         .stDownloadButton > button {{
             background: rgba(255,255,255,0.92) !important;
@@ -767,9 +702,6 @@ if uploaded:
         .stDownloadButton > button:hover {{
             background: #ffffff !important;
         }}
-        .stDownloadButton > button * {{
-            color: #111 !important;
-        }}
 
         details summary {{
             background: rgba(15, 23, 42, 0.65) !important;
@@ -778,7 +710,6 @@ if uploaded:
             border: 1px solid rgba(255,255,255,0.20) !important;
             color: #f8fafc !important;
         }}
-
         </style>
         """,
         unsafe_allow_html=True
@@ -1056,7 +987,6 @@ def create_output_excel(
     date_str = datetime.now().strftime("%Y-%m-%d")
     out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
 
-    # ✅ NEW: build TODAY ZERO SITES (drop column D)
     today_zero_df = build_today_zero_sites(zero_df)
 
     buffer = BytesIO()
@@ -1064,8 +994,6 @@ def create_output_excel(
         lpcd_df.to_excel(w, sheet_name="LPCD STATUS", index=False)
         less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
-
-        # ✅ NEW: extra sheet
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
