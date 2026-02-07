@@ -20,13 +20,15 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
 def apply_branding(
-    bg_overlay_opacity: float = 0.55,   # background image visibility (lower = more visible)
-    card_opacity: float = 0.50          # main container darkness (higher = more readable)
+    bg_overlay_opacity: float = 0.35,   # lower => background image MORE visible
+    card_opacity: float = 0.46          # slightly lower => content still readable
 ):
     st.markdown(
         f"""
         <style>
-        /* ---- App Background (image + dark overlay) ---- */
+        /* =========================
+           APP BACKGROUND (IMAGE)
+           ========================= */
         [data-testid="stAppViewContainer"] {{
             background-image:
                 linear-gradient(rgba(0,0,0,{bg_overlay_opacity}), rgba(0,0,0,{bg_overlay_opacity})),
@@ -37,7 +39,9 @@ def apply_branding(
             background-attachment: fixed;
         }}
 
-        /* ---- Main content container (make readable but not too opaque) ---- */
+        /* =========================
+           MAIN CONTENT CARD
+           ========================= */
         [data-testid="stAppViewContainer"] .block-container {{
             padding-top: 2.2rem;
             padding-bottom: 2rem;
@@ -45,18 +49,22 @@ def apply_branding(
             border-radius: 14px;
             backdrop-filter: blur(7px);
             -webkit-backdrop-filter: blur(7px);
-            border: 1px solid rgba(255,255,255,0.16);
+            border: 1px solid rgba(255,255,255,0.18);
             box-shadow: 0 12px 28px rgba(0,0,0,0.40);
             overflow: visible !important;
         }}
 
-        /* ---- Text ---- */
+        /* =========================
+           TEXT
+           ========================= */
         h1, h2, h3, h4, h5, h6, p, label,
         .stMarkdown, .stText, .stTitle, .stSubheader, .stCaption {{
             color: #F5F6F7 !important;
         }}
 
-        /* ---- Inputs ---- */
+        /* =========================
+           INPUTS
+           ========================= */
         input, textarea, select {{
             background-color: rgba(255,255,255,0.96) !important;
             color: #111 !important;
@@ -67,11 +75,13 @@ def apply_branding(
             color: #111 !important;
         }}
 
-        /* ---- File uploader: make area readable ---- */
+        /* =========================
+           FILE UPLOADER AREA
+           ========================= */
         [data-testid="stFileUploader"] section {{
-            background: rgba(255,255,255,0.18) !important;
+            background: rgba(255,255,255,0.20) !important;
             border-radius: 12px !important;
-            border: 1px solid rgba(255,255,255,0.30) !important;
+            border: 1px solid rgba(255,255,255,0.32) !important;
             padding: 12px !important;
             padding-bottom: 18px !important;
         }}
@@ -80,7 +90,7 @@ def apply_branding(
             font-weight: 600 !important;
         }}
 
-        /* ---- File uploader "Browse files" button (high contrast) ---- */
+        /* "Browse files" button visible */
         [data-testid="stFileUploader"] section button {{
             background: #ffffff !important;
             color: #111111 !important;
@@ -97,7 +107,37 @@ def apply_branding(
             color: #111111 !important;
         }}
 
-        /* ---- Alerts ---- */
+        /* =========================
+           UPLOADED FILE "STRIP" (the row you mentioned)
+           ========================= */
+        [data-testid="stFileUploaderFile"],
+        [data-testid="stFileUploader"] li {{
+            background: rgba(0,0,0,0.55) !important; /* stronger strip */
+            border: 1px solid rgba(255,255,255,0.18) !important;
+            border-radius: 12px !important;
+            padding: 12px 14px !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.30) !important;
+        }}
+
+        /* filename text */
+        [data-testid="stFileUploaderFile"] span,
+        [data-testid="stFileUploaderFile"] p,
+        [data-testid="stFileUploaderFile"] small {{
+            color: #F8FAFC !important;
+            font-weight: 700 !important;
+        }}
+
+        /* remove (X) button more visible */
+        [data-testid="stFileUploaderFile"] button {{
+            background: rgba(255,255,255,0.95) !important;
+            border-radius: 10px !important;
+            border: 1px solid rgba(0,0,0,0.12) !important;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.18) !important;
+        }}
+
+        /* =========================
+           ALERTS
+           ========================= */
         [data-testid="stAlert"] {{
             border-radius: 12px !important;
             padding: 0.75rem 1rem !important;
@@ -106,7 +146,9 @@ def apply_branding(
             border: 1px solid rgba(255,255,255,0.12) !important;
         }}
 
-        /* ---- Generate button (red) ---- */
+        /* =========================
+           GENERATE REPORT (RED)
+           ========================= */
         .stButton > button {{
             background: #ff4b4b !important;
             color: #ffffff !important;
@@ -121,31 +163,35 @@ def apply_branding(
             background: #e63d3d !important;
         }}
 
-        /* ---- Download button (green, very visible) ---- */
+        /* =========================
+           DOWNLOAD BUTTON (WHITE like your screenshot)
+           ========================= */
         .stDownloadButton > button {{
-            background: #22c55e !important;
-            color: #ffffff !important;
+            background: #ffffff !important;
+            color: #111111 !important;
             font-weight: 900 !important;
             border-radius: 14px !important;
-            border: 2px solid rgba(0,0,0,0.12) !important;
+            border: 2px solid rgba(0,0,0,0.10) !important;
             box-shadow: 0 12px 26px rgba(0,0,0,0.38) !important;
-            padding: 0.85rem 1.30rem !important;
+            padding: 0.85rem 1.35rem !important;
         }}
         .stDownloadButton > button:hover {{
-            background: #16a34a !important;
+            background: #f8fafc !important;
         }}
 
-        /* ---- VERY IMPORTANT: disabled state visibility (Streamlit disables until bytes exist) ---- */
+        /* Disabled state should still look visible */
         .stDownloadButton > button:disabled {{
-            opacity: 1 !important;              /* keep visible */
-            background: #94a3b8 !important;     /* slate */
-            color: #111 !important;
+            opacity: 1 !important;
+            background: rgba(255,255,255,0.75) !important;
+            color: rgba(17,17,17,0.75) !important;
             border: 2px solid rgba(255,255,255,0.18) !important;
             box-shadow: none !important;
             cursor: not-allowed !important;
         }}
 
-        /* ---- Expanders readability ---- */
+        /* =========================
+           EXPANDERS READABILITY
+           ========================= */
         details {{
             background: rgba(15, 23, 42, 0.55) !important;
             border-radius: 12px !important;
@@ -163,7 +209,6 @@ def apply_branding(
         """,
         unsafe_allow_html=True
     )
-
 
 # ---------------------------
 # Reading the uploaded file
