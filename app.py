@@ -20,7 +20,7 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
 def apply_branding(
-    bg_overlay_opacity: float = 0.52,   # lower = MORE background visibility
+    bg_overlay_opacity: float = 0.32,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
 ):
     st.markdown(
