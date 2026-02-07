@@ -470,7 +470,6 @@ def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame, lpcd_df: p
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
 
-
 # ---------------------------
 # Streamlit UI
 # ---------------------------
@@ -490,50 +489,56 @@ threshold = st.number_input(
 
 uploaded = st.file_uploader("Upload JJMUP file", type=["xls", "xlsx", "xlsm"])
 
-if uploaded:
+if uploaded is not None:
     st.info(f"Uploaded: {uploaded.name}")
 
     if st.button("Generate Report", type="primary"):
-    try:
-        df = read_source(uploaded)
+        try:
+            # Read source
+            df = read_source(uploaded)
 
-        less_df, zero_df = build_report(df, threshold=threshold)
-        lpcd_df = build_lpcd_status(df)
+            # Build sheets
+            less_df, zero_df = build_report(df, threshold=threshold)
+            lpcd_df = build_lpcd_status(df)
 
-        out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
+            # Build TODAY ZERO SITES (for metric + preview)
+            today_zero_df = build_today_zero_sites(zero_df)
 
-        st.success(f"Created: {out_name}")
+            # Create output excel (must include TODAY ZERO SITES in create_output_excel)
+            out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
 
-        # ✅ Build TODAY ZERO SITES once (metric + preview)
-        today_zero_df = build_today_zero_sites(zero_df)
+            # Success + metrics
+            st.success(f"Created: {out_name}")
 
-        # ✅ Metrics row: Today Zero Sites next to Zero/Inactive
-        c1, c2, c3 = st.columns(3)
-        c1.metric("SITES < threshold", len(less_df))
-        c2.metric("ZERO/INACTIVE SITES", len(zero_df))
-        c3.metric("TODAY ZERO SITES", len(today_zero_df))
+            c1, c2, c3 = st.columns(3)
+            c1.metric("SITES < threshold", len(less_df))
+            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+            c3.metric("TODAY ZERO SITES", len(today_zero_df))
 
-        with st.expander("Preview: LPCD STATUS"):
-            st.dataframe(lpcd_df, use_container_width=True)
+            # Previews
+            with st.expander("Preview: LPCD STATUS"):
+                st.dataframe(lpcd_df, use_container_width=True)
 
-        with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
-            st.dataframe(less_df, use_container_width=True)
+            with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
+                st.dataframe(less_df, use_container_width=True)
 
-        with st.expander("Preview: ZERO(INACTIVE SITES)"):
-            st.dataframe(zero_df, use_container_width=True)
+            with st.expander("Preview: ZERO(INACTIVE SITES)"):
+                st.dataframe(zero_df, use_container_width=True)
 
-        with st.expander("Preview: TODAY ZERO SITES"):
-            st.dataframe(today_zero_df, use_container_width=True)
+            with st.expander("Preview: TODAY ZERO SITES"):
+                st.dataframe(today_zero_df, use_container_width=True)
 
-        st.download_button(
-            "⬇️ Download Excel Report",
-            data=out_bytes,
-            file_name=out_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+            # Download
+            st.download_button(
+                "⬇️ Download Excel Report",
+                data=out_bytes,
+                file_name=out_name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
-    except Exception as e:
-        st.error("Error while generating report. Please check the uploaded file format/columns.")
-        st.exception(e)
+        except Exception as e:
+            st.error("Error while generating report. Please check the uploaded file format/columns.")
+            st.exception(e)
+
 else:
     st.warning("Please upload the JJMUP export file to proceed.")
