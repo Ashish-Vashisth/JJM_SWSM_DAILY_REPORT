@@ -20,8 +20,8 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
 def apply_branding(
-    bg_overlay_opacity: float = 0.35,   # lower => background image MORE visible
-    card_opacity: float = 0.46          # slightly lower => content still readable
+    bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
+    card_opacity: float = 0.42          # lower = card less dark (still readable)
 ):
     st.markdown(
         f"""
@@ -79,9 +79,9 @@ def apply_branding(
            FILE UPLOADER AREA
            ========================= */
         [data-testid="stFileUploader"] section {{
-            background: rgba(255,255,255,0.20) !important;
+            background: rgba(255,255,255,0.18) !important;
             border-radius: 12px !important;
-            border: 1px solid rgba(255,255,255,0.32) !important;
+            border: 1px solid rgba(255,255,255,0.30) !important;
             padding: 12px !important;
             padding-bottom: 18px !important;
         }}
@@ -90,7 +90,7 @@ def apply_branding(
             font-weight: 600 !important;
         }}
 
-        /* "Browse files" button visible */
+        /* Browse files button */
         [data-testid="stFileUploader"] section button {{
             background: #ffffff !important;
             color: #111111 !important;
@@ -108,18 +108,20 @@ def apply_branding(
         }}
 
         /* =========================
-           UPLOADED FILE "STRIP" (the row you mentioned)
+           UPLOADED FILE STRIP (LIGHTER + CLEARER)
            ========================= */
         [data-testid="stFileUploaderFile"],
         [data-testid="stFileUploader"] li {{
-            background: rgba(0,0,0,0.55) !important; /* stronger strip */
-            border: 1px solid rgba(255,255,255,0.18) !important;
-            border-radius: 12px !important;
+            background: rgba(255,255,255,0.16) !important;   /* lighter than before */
+            border: 1px solid rgba(255,255,255,0.22) !important;
+            border-radius: 14px !important;
             padding: 12px 14px !important;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.30) !important;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.25) !important;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
         }}
 
-        /* filename text */
+        /* Filename text inside strip */
         [data-testid="stFileUploaderFile"] span,
         [data-testid="stFileUploaderFile"] p,
         [data-testid="stFileUploaderFile"] small {{
@@ -127,12 +129,27 @@ def apply_branding(
             font-weight: 700 !important;
         }}
 
-        /* remove (X) button more visible */
+        /* =========================
+           STRIP CLOSE (X) BUTTON — CLEAN WHITE ROUND BUTTON
+           ========================= */
         [data-testid="stFileUploaderFile"] button {{
-            background: rgba(255,255,255,0.95) !important;
-            border-radius: 10px !important;
-            border: 1px solid rgba(0,0,0,0.12) !important;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.18) !important;
+            background: #ffffff !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(0,0,0,0.10) !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.20) !important;
+            width: 44px !important;
+            height: 44px !important;
+            padding: 0 !important;
+        }}
+        [data-testid="stFileUploaderFile"] button:hover {{
+            background: #f1f5f9 !important;
+        }}
+        /* Make the X icon dark */
+        [data-testid="stFileUploaderFile"] button svg path,
+        [data-testid="stFileUploaderFile"] button svg line,
+        [data-testid="stFileUploaderFile"] button svg polyline {{
+            stroke: #111111 !important;
+            stroke-width: 2 !important;
         }}
 
         /* =========================
@@ -147,7 +164,7 @@ def apply_branding(
         }}
 
         /* =========================
-           GENERATE REPORT (RED)
+           GENERATE REPORT BUTTON (RED)
            ========================= */
         .stButton > button {{
             background: #ff4b4b !important;
@@ -164,7 +181,7 @@ def apply_branding(
         }}
 
         /* =========================
-           DOWNLOAD BUTTON (WHITE like your screenshot)
+           DOWNLOAD BUTTON — WHITE (TEXT + ICON ALWAYS VISIBLE)
            ========================= */
         .stDownloadButton > button {{
             background: #ffffff !important;
@@ -172,34 +189,52 @@ def apply_branding(
             font-weight: 900 !important;
             border-radius: 14px !important;
             border: 2px solid rgba(0,0,0,0.10) !important;
-            box-shadow: 0 12px 26px rgba(0,0,0,0.38) !important;
+            box-shadow: 0 12px 26px rgba(0,0,0,0.28) !important;
             padding: 0.85rem 1.35rem !important;
         }}
+        /* Force child text/icon color */
+        .stDownloadButton > button * {{
+            color: #111111 !important;
+        }}
+        .stDownloadButton > button svg path,
+        .stDownloadButton > button svg line,
+        .stDownloadButton > button svg polyline {{
+            stroke: #111111 !important;
+        }}
+
         .stDownloadButton > button:hover {{
             background: #f8fafc !important;
         }}
 
-        /* Disabled state should still look visible */
+        /* Disabled state (still readable) */
         .stDownloadButton > button:disabled {{
             opacity: 1 !important;
-            background: rgba(255,255,255,0.75) !important;
-            color: rgba(17,17,17,0.75) !important;
-            border: 2px solid rgba(255,255,255,0.18) !important;
+            background: rgba(255,255,255,0.85) !important;
+            color: rgba(17,17,17,0.85) !important;
+            border: 2px solid rgba(0,0,0,0.06) !important;
             box-shadow: none !important;
             cursor: not-allowed !important;
+        }}
+        .stDownloadButton > button:disabled * {{
+            color: rgba(17,17,17,0.70) !important;
+        }}
+        .stDownloadButton > button:disabled svg path,
+        .stDownloadButton > button:disabled svg line,
+        .stDownloadButton > button:disabled svg polyline {{
+            stroke: rgba(17,17,17,0.70) !important;
         }}
 
         /* =========================
            EXPANDERS READABILITY
            ========================= */
         details {{
-            background: rgba(15, 23, 42, 0.55) !important;
+            background: rgba(15, 23, 42, 0.45) !important;
             border-radius: 12px !important;
             border: 1px solid rgba(255,255,255,0.14) !important;
             padding: 0.15rem 0.25rem !important;
         }}
         details summary {{
-            background: rgba(15, 23, 42, 0.70) !important;
+            background: rgba(15, 23, 42, 0.62) !important;
             border-radius: 10px !important;
             padding: 0.6rem 0.8rem !important;
             border: 1px solid rgba(255,255,255,0.18) !important;
