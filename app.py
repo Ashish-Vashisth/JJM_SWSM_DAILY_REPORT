@@ -19,6 +19,7 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # ---------------------------
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
+
 def apply_branding(
     bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
@@ -112,7 +113,7 @@ def apply_branding(
            ========================= */
         [data-testid="stFileUploaderFile"],
         [data-testid="stFileUploader"] li {{
-            background: rgba(255,255,255,0.16) !important;   /* lighter than before */
+            background: rgba(255,255,255,0.16) !important;
             border: 1px solid rgba(255,255,255,0.22) !important;
             border-radius: 14px !important;
             padding: 12px 14px !important;
@@ -192,7 +193,6 @@ def apply_branding(
             box-shadow: 0 12px 26px rgba(0,0,0,0.28) !important;
             padding: 0.85rem 1.35rem !important;
         }}
-        /* Force child text/icon color */
         .stDownloadButton > button * {{
             color: #111111 !important;
         }}
@@ -245,6 +245,7 @@ def apply_branding(
         unsafe_allow_html=True
     )
 
+
 # ---------------------------
 # Reading the uploaded file
 # ---------------------------
@@ -290,9 +291,16 @@ def find_col_contains(norm_map: dict, *needles: str) -> str:
 
 
 # ---------------------------
-# Business logic (your report)
+# Business logic (UPDATED)
 # ---------------------------
 def build_report(df: pd.DataFrame, threshold: float = 75.0):
+    """
+    Returns: less_df, zero_df, today_zero_df
+
+    - less_df: supplied water < threshold (based on Yesterday / Demand)
+    - zero_df: ZERO(INACTIVE SITES) = Yesterday==0 AND Today==0 (excluding both blank)
+    - today_zero_df: TODAY ZERO SITES = Today==0 OR blank/NaN (regardless of yesterday)
+    """
     df = flatten_columns(df)
     norm = normalize_columns(df)
 
@@ -320,6 +328,7 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
         "Today Water Production (m^3)",
     ]
 
+    # Robust numeric conversion: handles 0, 0.00, blanks, etc.
     for c in ["Daily Water Demand (m^3)", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]:
         work_df[c] = pd.to_numeric(work_df[c], errors="coerce")
 
@@ -331,9 +340,7 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
     less_df.insert(0, "SR.No.", range(1, len(less_df) + 1))
     less_df = less_df.drop(columns=["Today Water Production (m^3)"])
 
-    # Sheet: ZERO(INACTIVE SITES)
-    de_blank = work_df["Yesterday Water Production (m^3)"].isna() & work_df["Today Water Production (m^3)"].isna()
-
+    # Valid scheme rows
     valid_scheme = (
         work_df["Scheme Id"].notna()
         & work_df["Scheme Name"].notna()
@@ -342,6 +349,9 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
         & (work_df["Scheme Id"].astype(str).str.strip() != "")
         & (work_df["Scheme Name"].astype(str).str.strip() != "")
     )
+
+    # Sheet: ZERO(INACTIVE SITES)
+    de_blank = work_df["Yesterday Water Production (m^3)"].isna() & work_df["Today Water Production (m^3)"].isna()
 
     zero_mask = (
         valid_scheme
@@ -361,28 +371,31 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
     zero_df["Site Status"] = "ZERO/INACTIVE SITE"
     zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
 
-    return less_df, zero_df
+    # ✅ FIXED: TODAY ZERO SITES must be built from WORK_DF (not from zero_df)
+    # Include Today=0 OR Today blank/NaN
+    today_zero_mask = valid_scheme & (work_df["Today Water Production (m^3)"].fillna(0) == 0)
 
+    today_zero_df = work_df.loc[today_zero_mask, [
+        "Scheme Id",
+        "Scheme Name",
+        "Today Water Production (m^3)"
+    ]].copy()
 
-def build_today_zero_sites(zero_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    TODAY ZERO SITES = ZERO(INACTIVE SITES) but without Yesterday column
-    """
-    today_zero_df = zero_df.copy()
-    if "Yesterday Water Production (m^3)" in today_zero_df.columns:
-        today_zero_df = today_zero_df.drop(columns=["Yesterday Water Production (m^3)"])
+    today_zero_df["Last Data Receive Date"] = df.loc[today_zero_df.index, last_date_col].values
+    today_zero_df["Site Status"] = "ZERO/INACTIVE SITE"  # keep same label as your existing format
+    today_zero_df.insert(0, "SR.No.", range(1, len(today_zero_df) + 1))
 
-    desired_order = [
+    # Column order for TODAY ZERO SITES
+    today_zero_df = today_zero_df[[
         "SR.No.",
         "Scheme Id",
         "Scheme Name",
         "Today Water Production (m^3)",
         "Last Data Receive Date",
         "Site Status",
-    ]
-    existing = [c for c in desired_order if c in today_zero_df.columns]
-    remaining = [c for c in today_zero_df.columns if c not in existing]
-    return today_zero_df[existing + remaining]
+    ]]
+
+    return less_df, zero_df, today_zero_df
 
 
 def build_lpcd_status(df: pd.DataFrame) -> pd.DataFrame:
@@ -454,21 +467,27 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     return out.getvalue()
 
 
-def create_output_excel(less_df: pd.DataFrame, zero_df: pd.DataFrame, lpcd_df: pd.DataFrame) -> tuple[str, bytes]:
+# ✅ UPDATED signature to include today_zero_df
+def create_output_excel(
+    less_df: pd.DataFrame,
+    zero_df: pd.DataFrame,
+    today_zero_df: pd.DataFrame,
+    lpcd_df: pd.DataFrame
+) -> tuple[str, bytes]:
     date_str = datetime.now().strftime("%Y-%m-%d")
     out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
-
-    today_zero_df = build_today_zero_sites(zero_df)
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as w:
         lpcd_df.to_excel(w, sheet_name="LPCD STATUS", index=False)
         less_df.to_excel(w, sheet_name="SUPPLIED WATER LESS THAN 75", index=False)
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
+        # ✅ This is the correct, complete list now
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
+
 
 # ---------------------------
 # Streamlit UI
@@ -497,21 +516,18 @@ if uploaded is not None:
             # Read source
             df = read_source(uploaded)
 
-            # Build sheets
-            less_df, zero_df = build_report(df, threshold=threshold)
+            # Build sheets (✅ now returns today_zero_df also)
+            less_df, zero_df, today_zero_df = build_report(df, threshold=threshold)
             lpcd_df = build_lpcd_status(df)
 
-            # Build TODAY ZERO SITES (for metric + preview)
-            today_zero_df = build_today_zero_sites(zero_df)
-
-            # Create output excel (must include TODAY ZERO SITES in create_output_excel)
-            out_name, out_bytes = create_output_excel(less_df, zero_df, lpcd_df)
+            # Create output excel
+            out_name, out_bytes = create_output_excel(less_df, zero_df, today_zero_df, lpcd_df)
 
             # Success + metrics
             st.success(f"Created: {out_name}")
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("SITES < threshold", len(less_df))
+            c1.metric(f"SITES < {threshold:g}%", len(less_df))
             c2.metric("ZERO/INACTIVE SITES", len(zero_df))
             c3.metric("TODAY ZERO SITES", len(today_zero_df))
 
