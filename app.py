@@ -1,4 +1,4 @@
-modified_code = r'''
+
 import re
 from io import BytesIO, StringIO
 from datetime import datetime
@@ -19,6 +19,7 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # ---------------------------
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
+
 def apply_branding(
     bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
@@ -290,7 +291,7 @@ def find_col_contains(norm_map: dict, *needles: str) -> str:
 
 
 # ---------------------------
-# Business logic (UPDATED)
+# Business logic
 # ---------------------------
 def build_report(df: pd.DataFrame, threshold: float = 75.0):
     """
@@ -327,16 +328,19 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
         "Today Water Production (m^3)",
     ]
 
+    # Robust numeric conversion
     for c in ["Daily Water Demand (m^3)", "Yesterday Water Production (m^3)", "Today Water Production (m^3)"]:
         work_df[c] = pd.to_numeric(work_df[c], errors="coerce")
 
     work_df["Percentage"] = (work_df["Yesterday Water Production (m^3)"] / work_df["Daily Water Demand (m^3)"]) * 100
 
+    # Sheet: SUPPLIED WATER LESS THAN threshold
     less_df = work_df[work_df["Percentage"].fillna(0) < threshold].copy()
     less_df["Supplied Water Percentage"] = f"<{threshold:g}%"
     less_df.insert(0, "SR.No.", range(1, len(less_df) + 1))
     less_df = less_df.drop(columns=["Today Water Production (m^3)"])
 
+    # Valid scheme rows
     valid_scheme = (
         work_df["Scheme Id"].notna()
         & work_df["Scheme Name"].notna()
@@ -346,6 +350,7 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
         & (work_df["Scheme Name"].astype(str).str.strip() != "")
     )
 
+    # Sheet: ZERO(INACTIVE SITES)
     de_blank = work_df["Yesterday Water Production (m^3)"].isna() & work_df["Today Water Production (m^3)"].isna()
 
     zero_mask = (
@@ -366,6 +371,7 @@ def build_report(df: pd.DataFrame, threshold: float = 75.0):
     zero_df["Site Status"] = "ZERO/INACTIVE SITE"
     zero_df.insert(0, "SR.No.", range(1, len(zero_df) + 1))
 
+    # Sheet: TODAY ZERO SITES
     today_zero_mask = valid_scheme & (work_df["Today Water Production (m^3)"].fillna(0) == 0)
 
     today_zero_df = work_df.loc[today_zero_mask, [
@@ -422,10 +428,12 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     df = flatten_columns(df)
     norm = normalize_columns(df)
 
+    # Keep source A, B, C equivalent columns
     sno_col = df.columns[0]
     scheme_id_col = find_col_contains(norm, "schemeid")
     scheme_name_col = find_col_contains(norm, "schemename")
 
+    # Find source abnormal columns by heading fragments
     hydro_col = find_col_contains(norm, "groundwaterdepth", "avg", "meter")
 
     radar_col = None
@@ -479,18 +487,21 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     turbidity_vals = abnormal_df["Abnormal Turbidity (NTU)"]
     voltage_vals = abnormal_df["Abnormal Voltage"]
 
+    # Abnormal rules
     hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(18, 22.5, inclusive="both")
     radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 4.5))
     pressure_abnormal = pressure_vals.notna() & ~pressure_vals.between(1.45, 1.95, inclusive="both")
     turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
     voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 225))
 
+    # Keep only abnormal values, blank out normal values
     abnormal_df.loc[~hydro_abnormal, "Abnormal Hydrostatic Level"] = pd.NA
     abnormal_df.loc[~radar_abnormal, "Abnormal Radar Level"] = pd.NA
     abnormal_df.loc[~pressure_abnormal, "Abnormal Pressure(BAR) Reading"] = pd.NA
     abnormal_df.loc[~turbidity_abnormal, "Abnormal Turbidity (NTU)"] = pd.NA
     abnormal_df.loc[~voltage_abnormal, "Abnormal Voltage"] = pd.NA
 
+    # Keep only rows having at least one abnormal reading
     at_least_one_abnormal = abnormal_df[abnormal_cols].notna().any(axis=1)
     abnormal_df = abnormal_df.loc[at_least_one_abnormal].copy()
     abnormal_df.reset_index(drop=True, inplace=True)
@@ -513,14 +524,13 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     header_font = Font(bold=True, color="000000")
     header_fill = PatternFill("solid", fgColor="5B9BD5")
 
-    abnormal_fill = PatternFill("solid", fgColor="FFC7CE")
-    note_label_fill = PatternFill("solid", fgColor="D9EAF7")
-    note_value_fill = PatternFill("solid", fgColor="FFF2CC")
+    abnormal_fill = PatternFill("solid", fgColor="FFC7CE")   # light red
+    note_label_fill = PatternFill("solid", fgColor="D9EAF7") # light blue
+    note_value_fill = PatternFill("solid", fgColor="FFF2CC") # light yellow
     note_font = Font(bold=True, color="000000")
 
     def format_sheet(ws):
-        for cell in ws[1]:
-            cell.font = header_font
+        for cell in wscell.font = header_font
             cell.fill = header_fill
             cell.alignment = align_center
             cell.border = border_all
@@ -539,15 +549,17 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             width = maxlen.get(c, 0)
             ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
 
+    # Format existing 4 sheets
     for sheet in ["LPCD STATUS", "SUPPLIED WATER LESS THAN 75", "ZERO(INACTIVE SITES)", "TODAY ZERO SITES"]:
         if sheet in wb.sheetnames:
             format_sheet(wb[sheet])
 
+    # Format ABNORMAL SITES with extra highlighting and notes
     if "ABNORMAL SITES" in wb.sheetnames:
         ws = wb["ABNORMAL SITES"]
         format_sheet(ws)
 
-        # Highlight abnormal values in columns D:H (only nonblank abnormal entries)
+        # Highlight abnormal values in D:H only where value exists
         for row in range(2, ws.max_row + 1):
             for col in range(4, 9):
                 cell = ws.cell(row=row, column=col)
@@ -555,7 +567,7 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
                     cell.fill = abnormal_fill
                     cell.font = note_font
 
-        # Add normal/acceptable ranges at the bottom (excluding voltage)
+        # Add acceptable / normal values at the bottom (NO voltage text)
         start_row = ws.max_row + 2
         notes = [
             ("Normal Hydrostatic Level", "18 to 22.5"),
@@ -564,13 +576,14 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             ("Normal Turbidity(NTU)", "0+ to 5"),
         ]
 
-        for i, (label, value) in enumerate(notes, start=0):
+        for i, (label, value) in enumerate(notes):
             r = start_row + i
             label_cell = ws.cell(row=r, column=1, value=label)
             value_cell = ws.cell(row=r, column=2, value=value)
 
             label_cell.font = note_font
             value_cell.font = note_font
+
             label_cell.fill = note_label_fill
             value_cell.fill = note_value_fill
 
@@ -593,7 +606,7 @@ def create_output_excel(
     zero_df: pd.DataFrame,
     today_zero_df: pd.DataFrame,
     lpcd_df: pd.DataFrame,
-    abnormal_df: pd.DataFrame,
+    abnormal_df: pd.DataFrame
 ) -> tuple[str, bytes]:
     date_str = datetime.now().strftime("%Y-%m-%d")
     out_name = f"ZERO & SUPPLY LESS THAN THRESHOLD SITES {date_str}.xlsx"
@@ -634,16 +647,20 @@ if uploaded is not None:
 
     if st.button("Generate Report", type="primary"):
         try:
+            # Read source
             df = read_source(uploaded)
 
+            # Build sheets
             less_df, zero_df, today_zero_df = build_report(df, threshold=threshold)
             lpcd_df = build_lpcd_status(df)
             abnormal_df = build_abnormal_sites(df)
 
+            # Create output excel
             out_name, out_bytes = create_output_excel(
                 less_df, zero_df, today_zero_df, lpcd_df, abnormal_df
             )
 
+            # Success + metrics
             st.success(f"Created: {out_name}")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -652,6 +669,7 @@ if uploaded is not None:
             c3.metric("TODAY ZERO SITES", len(today_zero_df))
             c4.metric("ABNORMAL SITES", len(abnormal_df))
 
+            # Previews
             with st.expander("Preview: LPCD STATUS"):
                 st.dataframe(lpcd_df, use_container_width=True)
 
@@ -667,6 +685,7 @@ if uploaded is not None:
             with st.expander("Preview: ABNORMAL SITES"):
                 st.dataframe(abnormal_df, use_container_width=True)
 
+            # Download
             st.download_button(
                 "⬇️ Download Excel Report",
                 data=out_bytes,
@@ -680,9 +699,3 @@ if uploaded is not None:
 
 else:
     st.warning("Please upload the JJMUP export file to proceed.")
-'''
-
-import ast
-ast.parse(modified_code)
-print('SYNTAX_OK')
-print(len(modified_code))
