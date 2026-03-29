@@ -492,7 +492,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 4.5))
     pressure_abnormal = pressure_vals.notna() & ~pressure_vals.between(1.45, 1.95, inclusive="both")
     turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
-    voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 225))
+    voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 325))
 
     # Keep only abnormal values, blank out normal values
     abnormal_df.loc[~hydro_abnormal, "Abnormal Hydrostatic Level"] = pd.NA
