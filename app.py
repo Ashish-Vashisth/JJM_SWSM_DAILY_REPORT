@@ -1,4 +1,4 @@
-modified_code = r'''
+
 import re
 from io import BytesIO, StringIO
 from datetime import datetime
