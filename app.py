@@ -23,12 +23,13 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 def apply_branding(
     bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
-     /* FIX: Restore Streamlit dataframe toolbar visibility */
+     
+):
+    /* FIX: Restore Streamlit dataframe toolbar visibility */
 [data-testid="stDataFrameToolbar"] {
     visibility: visible !important;
     opacity: 1 !important;
 }
-):
     st.markdown(
         f"""
         <style>
