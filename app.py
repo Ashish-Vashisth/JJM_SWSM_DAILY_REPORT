@@ -25,7 +25,6 @@ def apply_branding(
     card_opacity: float = 0.42          # lower = card less dark (still readable)
      
 ):
-    /* FIX: Restore Streamlit dataframe toolbar visibility */
 [data-testid="stDataFrameToolbar"] {
     visibility: visible !important;
     opacity: 1 !important;
