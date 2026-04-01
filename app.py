@@ -855,7 +855,6 @@ apply_branding()
 
 st.title("UMPESL JJM SWSM Daily Report Generator")
 st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
-st.markdown("### ✅ Site Status Mix")
 
 threshold = st.number_input(
     "Threshold (%) for SITES LESS THAN list",
