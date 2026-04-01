@@ -244,6 +244,11 @@ def apply_branding(
         """,
         unsafe_allow_html=True
     )
+    /* FIX: Restore Streamlit dataframe toolbar visibility */
+[data-testid="stDataFrameToolbar"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
 
 
 # ---------------------------
