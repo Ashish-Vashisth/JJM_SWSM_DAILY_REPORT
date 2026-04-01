@@ -684,7 +684,7 @@ if uploaded is not None:
 
             with st.expander("Preview: ABNORMAL SITES"):
                 st.dataframe(abnormal_df, use_container_width=True)
-        # -------------------------------------------------------
+                # -------------------------------------------------------
         # SIMPLE CLEAN DASHBOARD (5 TABS)
         # -------------------------------------------------------
 
@@ -746,7 +746,8 @@ if uploaded is not None:
             }
 
             st.metric("Total Abnormal Sites", len(abnormal_df))
-            st.bar_chart(pd.DataFrame.from_dict(abnormal_counts, orient='index', columns=["Count"]))    
+            st.bar_chart(pd.DataFrame.from_dict(abnormal_counts, orient='index', columns=["Count"]))
+          
 
             # Download
             st.download_button(
