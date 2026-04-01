@@ -704,20 +704,20 @@ if uploaded is not None:
             ])
 
             # ---------------- TAB 1: LPCD STATUS ----------------
-           with tab1:
-    st.subheader("LPCD STATUS Overview")
+            with tab1:
+                st.subheader("LPCD STATUS Overview")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Avg LPCD Yesterday", f"{lpcd_df['Avg LPCD (Yesterday)'].mean():.1f}")
-    c2.metric("Avg Weekly LPCD", f"{lpcd_df['Avg LPCD (Weekly)'].mean():.1f}")
-    c3.metric("Avg Monthly LPCD", f"{lpcd_df['Avg LPCD (Monthly)'].mean():.1f}")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Avg LPCD Yesterday", f"{lpcd_df['Avg LPCD (Yesterday)'].mean():.1f}")
+                c2.metric("Avg Weekly LPCD", f"{lpcd_df['Avg LPCD (Weekly)'].mean():.1f}")
+                c3.metric("Avg Monthly LPCD", f"{lpcd_df['Avg LPCD (Monthly)'].mean():.1f}")
 
-    # ✅ SPARKLINE (TREND CHART)
-    st.caption("Trend (Yesterday LPCD)")
-    st.line_chart(lpcd_df["Avg LPCD (Yesterday)"])
+              # ✅ SPARKLINE (TREND CHART)
+                st.caption("Trend (Yesterday LPCD)")
+                st.line_chart(lpcd_df["Avg LPCD (Yesterday)"])
 
-    # ✅ MAIN BAR CHART
-    st.bar_chart(lpcd_df.set_index("Scheme Name")["Avg LPCD (Yesterday)"])
+              # ✅ MAIN BAR CHART
+                st.bar_chart(lpcd_df.set_index("Scheme Name")["Avg LPCD (Yesterday)"])
 
             # ---------------- TAB 2: SUPPLIED < 75% ----------------
             with tab2:
