@@ -920,40 +920,40 @@ if uploaded is not None:
             # TAB 1 — SUMMARY
             # -------------------------------------------------------
             with tab1:
-            st.subheader("Overall Summary")
+                st.subheader("Overall Summary")
 
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Total Schemes", len(lpcd_df))
-            c2.metric(f"< {threshold:g}% Supply", len(less_df))
-            c3.metric("Zero / Inactive", len(zero_df))
-            c4.metric("Today Zero", len(today_zero_df))
-            c5.metric("Abnormal", len(abnormal_df))
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("Total Schemes", len(lpcd_df))
+                c2.metric(f"< {threshold:g}% Supply", len(less_df))
+                c3.metric("Zero / Inactive", len(zero_df))
+                c4.metric("Today Zero", len(today_zero_df))
+                c5.metric("Abnormal", len(abnormal_df))
 
-            st.markdown("### ✅ Site Status Mix")
-            make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
+                st.markdown("### ✅ Site Status Mix")
+                make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
 
-            st.markdown("### ✅ Supply Severity")
-            make_donut_chart(severity_summary, "Severity", "Count", "Supply Severity Levels")
+                st.markdown("### ✅ Supply Severity")
+                make_donut_chart(severity_summary, "Severity", "Count", "Supply Severity Levels")
 
-            st.markdown("### ✅ Abnormal Parameters")
-            make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
+                st.markdown("### ✅ Abnormal Parameters")
+                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
 
 
             # -------------------------------------------------------
             # TAB 2 — LPCD STATUS
             # -------------------------------------------------------
             with tab2:
-            st.subheader("LPCD Status Overview")
+                st.subheader("LPCD Status Overview")
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Avg Yesterday LPCD", safe_mean(lpcd_df["Avg LPCD (Yesterday)"]))
-            c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
-            c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Avg Yesterday LPCD", safe_mean(lpcd_df["Avg LPCD (Yesterday)"]))
+                c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
+                c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
             # Top 10 Lowest LPCD Yesterday
-            st.markdown("### 🔽 Lowest LPCD Yesterday (Top 10)")
-            top10_lpcd = (
-            lpcd_df.sort_values("Avg LPCD (Yesterday)").head(10)[["Scheme Name", "Avg LPCD (Yesterday)"]]
+                st.markdown("### 🔽 Lowest LPCD Yesterday (Top 10)")
+                top10_lpcd = (
+                lpcd_df.sort_values("Avg LPCD (Yesterday)").head(10)[["Scheme Name", "Avg LPCD (Yesterday)"]]
             )
             make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Yesterday)", "Lowest LPCD (Yesterday)", color="#00BFFF")
 
@@ -962,50 +962,50 @@ if uploaded is not None:
             # TAB 3 — SUPPLIED < THRESHOLD
             # -------------------------------------------------------
             with tab3:
-            st.subheader("Sites Supplied Below Threshold")
+                st.subheader("Sites Supplied Below Threshold")
 
-            c1, c2 = st.columns(2)
-            c1.metric("Below Threshold Sites", len(less_df))
-            c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
+                c1, c2 = st.columns(2)
+                c1.metric("Below Threshold Sites", len(less_df))
+                c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
 
             # Top 10 worst supply % 
-            st.markdown("### 🔽 Lowest Supply % (Top 10)")
-            worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
-            make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
+                st.markdown("### 🔽 Lowest Supply % (Top 10)")
+                worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
+                make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
 
 
             # -------------------------------------------------------
             # TAB 4 — ZERO / INACTIVE SITES
             # -------------------------------------------------------
             with tab4:
-            st.subheader("Zero / Inactive Sites")
+                st.subheader("Zero / Inactive Sites")
 
-            st.metric("Total Inactive Sites", len(zero_df))
-            st.dataframe(zero_df, use_container_width=True)
+                st.metric("Total Inactive Sites", len(zero_df))
+                st.dataframe(zero_df, use_container_width=True)
 
 
             # -------------------------------------------------------
             # TAB 5 — ABNORMAL SITES
             # -------------------------------------------------------
             with tab5:
-            st.subheader("Abnormal Instrument Readings")
+                st.subheader("Abnormal Instrument Readings")
 
-            st.metric("Total Abnormal Sites", len(abnormal_df))
+                st.metric("Total Abnormal Sites", len(abnormal_df))
 
-            make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
-            st.dataframe(abnormal_df, use_container_width=True)
+                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
+                st.dataframe(abnormal_df, use_container_width=True)
 
 
             # -------------------------------------------------------
             # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
             # -------------------------------------------------------
             with tab6:
-            st.subheader("🚨 Top Critical Sites (Auto-Scored)")
+                st.subheader("🚨 Top Critical Sites (Auto-Scored)")
 
-            if critical_sites.empty:
-            st.info("No critical issues found today ✅")
-            else:
-            st.dataframe(critical_sites, use_container_width=True)
+                if critical_sites.empty:
+                st.info("No critical issues found today ✅")
+                else:
+                st.dataframe(critical_sites, use_container_width=True)
 
             # Download
             st.download_button(
