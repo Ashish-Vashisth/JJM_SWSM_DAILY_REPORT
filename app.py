@@ -5,6 +5,8 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
 
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -626,7 +628,212 @@ def create_output_excel(
 
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
+def safe_mean(series):
+    s = pd.to_numeric(series, errors="coerce").dropna()
+    return 0 if s.empty else round(s.mean(), 1)
 
+
+def safe_min(series):
+    s = pd.to_numeric(series, errors="coerce").dropna()
+    return 0 if s.empty else round(s.min(), 1)
+
+
+def make_donut_chart(df_chart, names_col, values_col, title, colors=None, height=360):
+    if df_chart.empty or df_chart[values_col].sum() == 0:
+        st.info(f"No data available for {title}")
+        return
+
+    fig = px.pie(
+        df_chart,
+        names=names_col,
+        values=values_col,
+        hole=0.58,
+        color=names_col,
+        color_discrete_sequence=colors or px.colors.qualitative.Set2
+    )
+
+    fig.update_traces(
+        textposition="inside",
+        textinfo="percent+label"
+    )
+
+    fig.update_layout(
+        title=title,
+        height=height,
+        margin=dict(l=10, r=10, t=50, b=10),
+        legend_title="",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def make_bar_chart(df_chart, x_col, y_col, title, color="#4F81BD", height=420):
+    if df_chart.empty:
+        st.info(f"No data available for {title}")
+        return
+
+    fig = px.bar(
+        df_chart,
+        x=x_col,
+        y=y_col,
+        title=title,
+        text=y_col
+    )
+
+    fig.update_traces(marker_color=color, textposition="outside")
+    fig.update_layout(
+        height=height,
+        xaxis_title="",
+        yaxis_title="",
+        margin=dict(l=10, r=10, t=50, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.96)",
+        font=dict(color="white")
+    )
+    fig.update_xaxes(tickangle=-45)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold):
+    base_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+    base_df["key"] = (
+        base_df["Scheme Id"].astype(str).str.strip() + " | " +
+        base_df["Scheme Name"].astype(str).str.strip()
+    )
+    base_df = base_df.drop_duplicates(subset=["key"]).copy()
+
+    def make_key_set(df_in):
+        if df_in.empty:
+            return set()
+        x = df_in[["Scheme Id", "Scheme Name"]].dropna().copy()
+        x["key"] = (
+            x["Scheme Id"].astype(str).str.strip() + " | " +
+            x["Scheme Name"].astype(str).str.strip()
+        )
+        return set(x["key"].tolist())
+
+    zero_keys = make_key_set(zero_df)
+    today_zero_keys = make_key_set(today_zero_df)
+    less_keys = make_key_set(less_df)
+    abnormal_keys = make_key_set(abnormal_df)
+
+    def classify_site(k):
+        if k in zero_keys:
+            return "Zero / Inactive"
+        elif k in today_zero_keys:
+            return "Today Zero"
+        elif k in less_keys:
+            return f"Supply < {threshold:g}%"
+        elif k in abnormal_keys:
+            return "Abnormal Reading"
+        else:
+            return "Healthy / Normal"
+
+    base_df["Site Status"] = base_df["key"].apply(classify_site)
+
+    status_summary = (
+        base_df["Site Status"]
+        .value_counts()
+        .rename_axis("Status")
+        .reset_index(name="Count")
+    )
+
+    return status_summary
+
+
+def build_supply_severity_summary(less_df, threshold):
+    if less_df.empty or "Percentage" not in less_df.columns:
+        return pd.DataFrame(columns=["Severity", "Count"])
+
+    df_temp = less_df.copy()
+
+    def bucket(p):
+        if pd.isna(p):
+            return "Unknown"
+        if p < 25:
+            return "<25%"
+        elif p < 50:
+            return "25–50%"
+        elif p < threshold:
+            return f"50–{threshold:g}%"
+        else:
+            return f">={threshold:g}%"
+
+    df_temp["Severity"] = df_temp["Percentage"].apply(bucket)
+
+    summary = (
+        df_temp["Severity"]
+        .value_counts()
+        .rename_axis("Severity")
+        .reset_index(name="Count")
+    )
+
+    order = ["<25%", "25–50%", f"50–{threshold:g}%", f">={threshold:g}%", "Unknown"]
+    summary["order"] = summary["Severity"].apply(lambda x: order.index(x) if x in order else 999)
+    summary = summary.sort_values("order").drop(columns="order")
+
+    return summary
+
+
+def build_abnormal_parameter_summary(abnormal_df):
+    if abnormal_df.empty:
+        return pd.DataFrame(columns=["Parameter", "Count"])
+
+    summary = pd.DataFrame({
+        "Parameter": [
+            "Hydrostatic",
+            "Radar Level",
+            "Pressure",
+            "Turbidity",
+            "Voltage"
+        ],
+        "Count": [
+            abnormal_df["Abnormal Hydrostatic Level"].notna().sum(),
+            abnormal_df["Abnormal Radar Level"].notna().sum(),
+            abnormal_df["Abnormal Pressure(BAR) Reading"].notna().sum(),
+            abnormal_df["Abnormal Turbidity (NTU)"].notna().sum(),
+            abnormal_df["Abnormal Voltage"].notna().sum(),
+        ]
+    })
+
+    summary = summary[summary["Count"] > 0].copy()
+    return summary
+
+
+def build_top_critical_sites(less_df, abnormal_df, top_n=10):
+    critical_frames = []
+
+    if not less_df.empty:
+        x = less_df[["Scheme Id", "Scheme Name", "Percentage"]].copy()
+        x["Issue Type"] = "Low Supply"
+        x["Severity Score"] = 100 - pd.to_numeric(x["Percentage"], errors="coerce").fillna(0)
+        critical_frames.append(x)
+
+    if not abnormal_df.empty:
+        ab_cols = [
+            "Abnormal Hydrostatic Level",
+            "Abnormal Radar Level",
+            "Abnormal Pressure(BAR) Reading",
+            "Abnormal Turbidity (NTU)",
+            "Abnormal Voltage",
+        ]
+        y = abnormal_df[["Scheme Id", "Scheme Name"] + ab_cols].copy()
+        y["Abnormal Count"] = y[ab_cols].notna().sum(axis=1)
+        y["Issue Type"] = "Abnormal Reading"
+        y["Severity Score"] = y["Abnormal Count"] * 20
+        y = y[["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"]]
+        critical_frames.append(y)
+
+    if not critical_frames:
+        return pd.DataFrame(columns=["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"])
+
+    out = pd.concat(critical_frames, ignore_index=True)
+    out = out.sort_values("Severity Score", ascending=False).head(top_n).copy()
+    return out
 
 # ---------------------------
 # Streamlit UI
@@ -688,70 +895,117 @@ if uploaded is not None:
                 st.dataframe(today_zero_df, use_container_width=True)
 
             with st.expander("Preview: ABNORMAL SITES"):
-                st.dataframe(abnormal_df, use_container_width=True)
-
+                st.dataframe(abnormal_df, use_container_width=Tr
             # -------------------------------------------------------
-            # SIMPLE CLEAN DASHBOARD (5 TABS)
+            # ✅ NEW ADVANCED DASHBOARD (PIE CHARTS + CRITICAL LISTS)
             # -------------------------------------------------------
-            st.markdown("## 📊 Overview")
+            st.markdown("## 📊 Overview Dashboard")
 
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                "LPCD STATUS",
-                "SUPPLIED < 75%",
-                "ZERO (INACTIVE)",
-                "TODAY ZERO",
-                "ABNORMAL SITES"
+            # Build summaries
+            status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
+            severity_summary = build_supply_severity_summary(less_df, threshold)
+            abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
+            critical_sites = build_top_critical_sites(less_df, abnormal_df)
+
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "Summary",
+            "LPCD STATUS",
+            "SUPPLIED < Threshold",
+            "ZERO / INACTIVE",
+            "ABNORMAL SITES",
+            "Critical Sites"
             ])
 
-            # ---------------- TAB 1: LPCD STATUS ----------------
+            # -------------------------------------------------------
+            # TAB 1 — SUMMARY
+            # -------------------------------------------------------
             with tab1:
-                st.subheader("LPCD STATUS Overview")
+            st.subheader("Overall Summary")
 
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Avg LPCD Yesterday", f"{lpcd_df['Avg LPCD (Yesterday)'].mean():.1f}")
-                c2.metric("Avg Weekly LPCD", f"{lpcd_df['Avg LPCD (Weekly)'].mean():.1f}")
-                c3.metric("Avg Monthly LPCD", f"{lpcd_df['Avg LPCD (Monthly)'].mean():.1f}")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total Schemes", len(lpcd_df))
+            c2.metric(f"< {threshold:g}% Supply", len(less_df))
+            c3.metric("Zero / Inactive", len(zero_df))
+            c4.metric("Today Zero", len(today_zero_df))
+            c5.metric("Abnormal", len(abnormal_df))
 
-                st.bar_chart(lpcd_df.set_index("Scheme Name")["Avg LPCD (Yesterday)"])
+            st.markdown("### ✅ Site Status Mix")
+            make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
 
-            # ---------------- TAB 2: SUPPLIED < 75% ----------------
+            st.markdown("### ✅ Supply Severity")
+            make_donut_chart(severity_summary, "Severity", "Count", "Supply Severity Levels")
+
+            st.markdown("### ✅ Abnormal Parameters")
+            make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
+
+
+            # -------------------------------------------------------
+            # TAB 2 — LPCD STATUS
+            # -------------------------------------------------------
             with tab2:
-                st.subheader("Sites Supplied < Threshold")
+            st.subheader("LPCD Status Overview")
 
-                c1, c2 = st.columns(2)
-                c1.metric("Sites Below Threshold", len(less_df))
-                c2.metric("Lowest Supply %", f"{less_df['Percentage'].min():.1f}")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Avg Yesterday LPCD", safe_mean(lpcd_df["Avg LPCD (Yesterday)"]))
+            c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
+            c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
-                st.bar_chart(less_df.set_index("Scheme Name")["Percentage"])
+            # Top 10 Lowest LPCD Yesterday
+            st.markdown("### 🔽 Lowest LPCD Yesterday (Top 10)")
+            top10_lpcd = (
+            lpcd_df.sort_values("Avg LPCD (Yesterday)").head(10)[["Scheme Name", "Avg LPCD (Yesterday)"]]
+            )
+            make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Yesterday)", "Lowest LPCD (Yesterday)", color="#00BFFF")
 
-            # ---------------- TAB 3: ZERO (INACTIVE) ----------------
+
+            # -------------------------------------------------------
+            # TAB 3 — SUPPLIED < THRESHOLD
+            # -------------------------------------------------------
             with tab3:
-                st.subheader("ZERO / INACTIVE SITES")
+            st.subheader("Sites Supplied Below Threshold")
 
-                st.metric("Total Inactive Sites", len(zero_df))
-                st.bar_chart(zero_df.set_index("Scheme Name")["Yesterday Water Production (m^3)"])
+            c1, c2 = st.columns(2)
+            c1.metric("Below Threshold Sites", len(less_df))
+            c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
 
-            # ---------------- TAB 4: TODAY ZERO ----------------
+            # Top 10 worst supply % 
+            st.markdown("### 🔽 Lowest Supply % (Top 10)")
+            worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
+            make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
+
+
+            # -------------------------------------------------------
+            # TAB 4 — ZERO / INACTIVE SITES
+            # -------------------------------------------------------
             with tab4:
-                st.subheader("Today Zero Sites")
+            st.subheader("Zero / Inactive Sites")
 
-                st.metric("Total Today Zero Sites", len(today_zero_df))
-                st.bar_chart(today_zero_df.set_index("Scheme Name")["Today Water Production (m^3)"])
+            st.metric("Total Inactive Sites", len(zero_df))
+            st.dataframe(zero_df, use_container_width=True)
 
-            # ---------------- TAB 5: ABNORMAL SITES ----------------
+
+            # -------------------------------------------------------
+            # TAB 5 — ABNORMAL SITES
+            # -------------------------------------------------------
             with tab5:
-                st.subheader("Abnormal Instrument Readings")
+            st.subheader("Abnormal Instrument Readings")
 
-                abnormal_counts = {
-                    "Hydrostatic": abnormal_df["Abnormal Hydrostatic Level"].notna().sum(),
-                    "Radar Level": abnormal_df["Abnormal Radar Level"].notna().sum(),
-                    "Pressure": abnormal_df["Abnormal Pressure(BAR) Reading"].notna().sum(),
-                    "Turbidity": abnormal_df["Abnormal Turbidity (NTU)"].notna().sum(),
-                    "Voltage": abnormal_df["Abnormal Voltage"].notna().sum(),
-                }
+            st.metric("Total Abnormal Sites", len(abnormal_df))
 
-                st.metric("Total Abnormal Sites", len(abnormal_df))
-                st.bar_chart(pd.DataFrame.from_dict(abnormal_counts, orient='index', columns=["Count"]))
+            make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
+            st.dataframe(abnormal_df, use_container_width=True)
+
+
+            # -------------------------------------------------------
+            # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
+            # -------------------------------------------------------
+            with tab6:
+            st.subheader("🚨 Top Critical Sites (Auto-Scored)")
+
+            if critical_sites.empty:
+            st.info("No critical issues found today ✅")
+            else:
+            st.dataframe(critical_sites, use_container_width=True)
 
             # Download
             st.download_button(
