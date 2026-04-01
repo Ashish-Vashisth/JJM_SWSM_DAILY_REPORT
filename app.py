@@ -688,7 +688,7 @@ if uploaded is not None:
             # -------------------------------------------------------
             # SIMPLE CLEAN DASHBOARD (5 TABS)
             # -------------------------------------------------------
-            st.markdown("## 📊 Dashboard Overview")
+            st.markdown("## 📊 Overview")
 
             tab1, tab2, tab3, tab4, tab5 = st.tabs([
                 "LPCD STATUS",
