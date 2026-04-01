@@ -545,6 +545,74 @@ if uploaded is not None:
                 st.dataframe(today_zero_df, use_container_width=True)
 
             # Download
+            # -------------------------------------------------------
+# SIMPLE, CLEAN DASHBOARD (5 TABS)
+# -------------------------------------------------------
+
+st.markdown("## 📊 Dashboard Overview")
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "LPCD STATUS",
+    "SUPPLIED < 75%",
+    "ZERO (INACTIVE)",
+    "TODAY ZERO",
+    "ABNORMAL SITES"
+])
+
+# ---------------- TAB 1: LPCD STATUS ----------------
+with tab1:
+    st.subheader("LPCD STATUS Overview")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Avg LPCD Yesterday", f"{lpcd_df['Avg LPCD (Yesterday)'].mean():.1f}")
+    c2.metric("Avg Weekly LPCD", f"{lpcd_df['Avg LPCD (Weekly)'].mean():.1f}")
+    c3.metric("Avg Monthly LPCD", f"{lpcd_df['Avg LPCD (Monthly)'].mean():.1f}")
+
+    st.bar_chart(lpcd_df.set_index("Scheme Name")["Avg LPCD (Yesterday)"])
+
+# ---------------- TAB 2: SUPPLIED < 75% ----------------
+with tab2:
+    st.subheader("Sites Supplied < Threshold")
+
+    c1, c2 = st.columns(2)
+    c1.metric("Sites Below Threshold", len(less_df))
+    c2.metric("Lowest Supply %", f"{less_df['Percentage'].min():.1f}")
+
+    st.bar_chart(less_df.set_index("Scheme Name")["Percentage"])
+
+# ---------------- TAB 3: ZERO (INACTIVE) ----------------
+with tab3:
+    st.subheader("ZERO / INACTIVE SITES")
+
+    c1 = st.columns(1)[0]
+    c1.metric("Total Inactive Sites", len(zero_df))
+
+    st.bar_chart(zero_df.set_index("Scheme Name")["Yesterday Water Production (m^3)"])
+
+# ---------------- TAB 4: TODAY ZERO ----------------
+with tab4:
+    st.subheader("Today Zero Sites")
+
+    c1 = st.columns(1)[0]
+    c1.metric("Total Today Zero Sites", len(today_zero_df))
+
+    st.bar_chart(today_zero_df.set_index("Scheme Name")["Today Water Production (m^3)"])
+
+# ---------------- TAB 5: ABNORMAL SITES ----------------
+with tab5:
+    st.subheader("Abnormal Instrument Readings")
+
+    abnormal_counts = {
+        "Hydrostatic": abnormal_df["Abnormal Hydrostatic Level"].notna().sum(),
+        "Radar Level": abnormal_df["Abnormal Radar Level"].notna().sum(),
+        "Pressure": abnormal_df["Abnormal Pressure(BAR) Reading"].notna().sum(),
+        "Turbidity": abnormal_df["Abnormal Turbidity (NTU)"].notna().sum(),
+        "Voltage": abnormal_df["Abnormal Voltage"].notna().sum(),
+    }
+
+    st.metric("Total Abnormal Sites", len(abnormal_df))
+
+    st.bar_chart(pd.DataFrame.from_dict(abnormal_counts, orient='index', columns=["Count"]))
             st.download_button(
                 "⬇️ Download Excel Report",
                 data=out_bytes,
