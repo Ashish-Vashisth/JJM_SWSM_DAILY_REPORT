@@ -941,7 +941,7 @@ if uploaded is not None:
                 c4.metric("Today Zero", len(today_zero_df))
                 c5.metric("Abnormal", len(abnormal_df))
 
-                st.markdown("### ✅ Site Status Mix")
+                st.markdown("### ✅ Site Status")
                 make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
 
                 st.markdown("### ✅ Supply Severity")
