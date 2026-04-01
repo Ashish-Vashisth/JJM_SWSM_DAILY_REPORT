@@ -895,7 +895,7 @@ if uploaded is not None:
                 st.dataframe(today_zero_df, use_container_width=True)
 
             with st.expander("Preview: ABNORMAL SITES"):
-                st.dataframe(abnormal_df, use_container_width=Tr
+                st.dataframe(abnormal_df, use_container_width=True)
             # -------------------------------------------------------
             # ✅ NEW ADVANCED DASHBOARD (PIE CHARTS + CRITICAL LISTS)
             # -------------------------------------------------------
