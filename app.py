@@ -240,6 +240,11 @@ def apply_branding(
             border: 1px solid rgba(255,255,255,0.18) !important;
             color: #f8fafc !important;
         }}
+        /* FIX: Restore Streamlit dataframe toolbar visibility */
+[data-testid="stDataFrameToolbar"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
         </style>
         """,
         unsafe_allow_html=True
