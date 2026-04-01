@@ -25,10 +25,7 @@ def apply_branding(
     card_opacity: float = 0.42          # lower = card less dark (still readable)
      
 ):
-[data-testid="stDataFrameToolbar"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-}
+
     st.markdown(
         f"""
         <style>
