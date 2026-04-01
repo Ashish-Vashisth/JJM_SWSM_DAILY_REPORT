@@ -6,12 +6,13 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
-PLOTLY_DARK_THEME = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="white"),
-    legend=dict(font=dict(color="white"))
-)
+PLOTLY_DARK_THEME = {
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+    "font": {"color": "white", "size": 14},
+    "legend": {"font": {"color": "white", "size": 14}},
+    "title": {"font": {"color": "white", "size": 18}},
+}
 
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -657,13 +658,27 @@ def make_donut_chart(df_chart, names_col, values_col, title, colors=None, height
         color_discrete_sequence=colors or px.colors.qualitative.Set2
     )
 
-    fig.update_traces(textposition="inside", textinfo="percent+label")
+    fig.update_traces(
+        textposition="inside",
+        textinfo="percent+label",
+        textfont=dict(color="white", size=14)
+    )
 
     fig.update_layout(
-        **PLOTLY_DARK_THEME,
-        title=title,
+        title=dict(text=title, font=dict(color="white", size=18)),
+        legend=dict(
+            font=dict(color="white", size=14),
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="left",
+            x=1.05   # Always keep to the right
+        ),
+        margin=dict(l=10, r=120, t=50, b=10),  # Add space for right legend
         height=height,
-        margin=dict(l=10, r=10, t=50, b=10)
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white")
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -840,6 +855,7 @@ apply_branding()
 
 st.title("UMPESL JJM SWSM Daily Report Generator")
 st.write("Upload JJMUP export (.xls/.xlsx) → Download the formatted report Excel.")
+st.markdown("### ✅ Site Status Mix")
 
 threshold = st.number_input(
     "Threshold (%) for SITES LESS THAN list",
