@@ -1003,9 +1003,9 @@ if uploaded is not None:
                 st.subheader("🚨 Top Critical Sites (Auto-Scored)")
 
                 if critical_sites.empty:
-                st.info("No critical issues found today ✅")
+                    st.info("No critical issues found today ✅")
                 else:
-                st.dataframe(critical_sites, use_container_width=True)
+                    st.dataframe(critical_sites, use_container_width=True)
 
             # Download
             st.download_button(
