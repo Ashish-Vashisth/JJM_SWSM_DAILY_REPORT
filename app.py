@@ -6,6 +6,12 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+PLOTLY_DARK_THEME = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="white"),
+    legend=dict(font=dict(color="white"))
+)
 
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -646,24 +652,18 @@ def make_donut_chart(df_chart, names_col, values_col, title, colors=None, height
         df_chart,
         names=names_col,
         values=values_col,
-        hole=0.58,
+        hole=0.55,
         color=names_col,
         color_discrete_sequence=colors or px.colors.qualitative.Set2
     )
 
-    fig.update_traces(
-        textposition="inside",
-        textinfo="percent+label"
-    )
+    fig.update_traces(textposition="inside", textinfo="percent+label")
 
     fig.update_layout(
+        **PLOTLY_DARK_THEME,
         title=title,
         height=height,
-        margin=dict(l=10, r=10, t=50, b=10),
-        legend_title="",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white")
+        margin=dict(l=10, r=10, t=50, b=10)
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -683,19 +683,17 @@ def make_bar_chart(df_chart, x_col, y_col, title, color="#4F81BD", height=420):
     )
 
     fig.update_traces(marker_color=color, textposition="outside")
+
     fig.update_layout(
+        **PLOTLY_DARK_THEME,
         height=height,
-        xaxis_title="",
-        yaxis_title="",
-        margin=dict(l=10, r=10, t=50, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(255,255,255,0.96)",
-        font=dict(color="white")
+        margin=dict(l=10, r=10, t=50, b=10)
     )
-    fig.update_xaxes(tickangle=-45)
+
+    fig.update_xaxes(tickfont=dict(color="white", size=11), tickangle=-35)
+    fig.update_yaxes(tickfont=dict(color="white", size=11))
 
     st.plotly_chart(fig, use_container_width=True)
-
 
 def build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold):
     base_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
