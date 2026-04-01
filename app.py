@@ -952,7 +952,7 @@ if uploaded is not None:
                 top10_lpcd = (
                 lpcd_df.sort_values("Avg LPCD (Yesterday)").head(10)[["Scheme Name", "Avg LPCD (Yesterday)"]]
             )
-            make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Yesterday)", "Lowest LPCD (Yesterday)", color="#00BFFF")
+                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Yesterday)", "Lowest LPCD (Yesterday)", color="#00BFFF")
 
 
             # -------------------------------------------------------
