@@ -851,7 +851,7 @@ def build_top_critical_sites(less_df, abnormal_df, top_n=10):
 # ---------------------------
 # Streamlit UI
 # ---------------------------
-st.set_page_config(page_title="UMPESL JJM SWSM Daily Report", layout="wide")
+st.set_page_config(page_title="UNIVERSAL MEP JJM SWSM Daily Report", layout="wide")
 apply_branding()
 
 st.title("UMPESL JJM SWSM Daily Report Generator")
