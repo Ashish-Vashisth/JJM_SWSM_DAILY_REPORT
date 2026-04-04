@@ -963,12 +963,12 @@ if uploaded is not None:
                 c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
                 c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
-            # Top 10 Lowest LPCD Yesterday
-                st.markdown("### 🔽 Lowest LPCD Yesterday (Top 10)")
+            # Top 10 Lowest LPCD Weekly
+                st.markdown("### 🔽 Lowest LPCD Weekly (Top 10)")
                 top10_lpcd = (
-                lpcd_df.sort_values("Avg LPCD (Yesterday)").head(10)[["Scheme Name", "Avg LPCD (Yesterday)"]]
+                lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[["Scheme Name", "Avg LPCD (Weekly)"]]
             )
-                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Yesterday)", "Lowest LPCD (Yesterday)", color="#00BFFF")
+                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Weekly)", "Lowest LPCD (Weekly)", color="#00BFFF")
 
 
             # -------------------------------------------------------
