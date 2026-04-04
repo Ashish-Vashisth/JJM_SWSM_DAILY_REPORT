@@ -502,11 +502,11 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     voltage_vals = abnormal_df["Abnormal Voltage"]
 
     # Abnormal rules
-    hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(18, 22.5, inclusive="both")
-    radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 4.5))
+    hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(15, 22.5, inclusive="both")
+    radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 5.5))
     pressure_abnormal = pressure_vals.notna() & ~pressure_vals.between(1.45, 1.95, inclusive="both")
     turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
-    voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 325))
+    voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 240))
 
     # Keep only abnormal values, blank out normal values
     abnormal_df.loc[~hydro_abnormal, "Abnormal Hydrostatic Level"] = pd.NA
@@ -584,8 +584,8 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
         # Add acceptable / normal values at the bottom (NO voltage text)
         start_row = ws.max_row + 2
         notes = [
-            ("Normal Hydrostatic Level", "18 to 22.5"),
-            ("Normal Radar Level", "0+ to 4.5"),
+            ("Normal Hydrostatic Level", "15 to 22.5"),
+            ("Normal Radar Level", "0+ to 5.5"),
             ("Normal Pressure(BAR) Reading", "1.45 to 1.95"),
             ("Normal Turbidity(NTU)", "0+ to 5"),
         ]
