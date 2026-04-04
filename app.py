@@ -458,15 +458,18 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     if radar_col is None:
         raise KeyError("Could not find 'OHT Level (Value in M)' column.")
 
+    chlorine_col = find_col_contains(norm, "chlorine", "ppm")
     pressure_col = find_col_contains(norm, "pressure", "bar")
     turbidity_col = find_col_contains(norm, "turbidity", "ntu")
     voltage_col = find_col_contains(norm, "voltagern")
+    
 
     abnormal_df = df[[
         sno_col,
         scheme_id_col,
         scheme_name_col,
         hydro_col,
+        chlorine_col,
         radar_col,
         pressure_col,
         turbidity_col,
@@ -478,6 +481,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
         "Scheme Id",
         "Scheme Name",
         "Abnormal Hydrostatic Level",
+        "Abnormal Chlorine(PPM) Reading",
         "Abnormal Radar Level",
         "Abnormal Pressure(BAR) Reading",
         "Abnormal Turbidity (NTU)",
@@ -486,6 +490,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
 
     abnormal_cols = [
         "Abnormal Hydrostatic Level",
+        "Abnormal Chlorine(PPM) Reading",
         "Abnormal Radar Level",
         "Abnormal Pressure(BAR) Reading",
         "Abnormal Turbidity (NTU)",
@@ -496,6 +501,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
         abnormal_df[c] = pd.to_numeric(abnormal_df[c], errors="coerce")
 
     hydro_vals = abnormal_df["Abnormal Hydrostatic Level"]
+    chlorine_vals = abnormal_df["Abnormal Chlorine(PPM) Reading"]
     radar_vals = abnormal_df["Abnormal Radar Level"]
     pressure_vals = abnormal_df["Abnormal Pressure(BAR) Reading"]
     turbidity_vals = abnormal_df["Abnormal Turbidity (NTU)"]
@@ -503,6 +509,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
 
     # Abnormal rules
     hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(15, 22.5, inclusive="both")
+    chlorine_abnormal = chlorine_vals.notna() & ~chlorine_vals.between(0.15, 0.5, inclusive="both")
     radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 5.5))
     pressure_abnormal = pressure_vals.notna() & ~pressure_vals.between(1.45, 1.95, inclusive="both")
     turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
@@ -510,6 +517,7 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
 
     # Keep only abnormal values, blank out normal values
     abnormal_df.loc[~hydro_abnormal, "Abnormal Hydrostatic Level"] = pd.NA
+    abnormal_df.loc[~chlorine_abnormal, "Abnormal Chlorine(PPM) Reading"] = pd.NA
     abnormal_df.loc[~radar_abnormal, "Abnormal Radar Level"] = pd.NA
     abnormal_df.loc[~pressure_abnormal, "Abnormal Pressure(BAR) Reading"] = pd.NA
     abnormal_df.loc[~turbidity_abnormal, "Abnormal Turbidity (NTU)"] = pd.NA
@@ -581,13 +589,15 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
                     cell.fill = abnormal_fill
                     cell.font = note_font
 
-        # Add acceptable / normal values at the bottom (NO voltage text)
+        # Add acceptable / normal values at the bottom
         start_row = ws.max_row + 2
         notes = [
             ("Normal Hydrostatic Level", "15 to 22.5"),
+            ("Normal Chlorine(PPM) Reading", "0.15 to 0.5"),
             ("Normal Radar Level", "0+ to 5.5"),
             ("Normal Pressure(BAR) Reading", "1.45 to 1.95"),
             ("Normal Turbidity(NTU)", "0+ to 5"),
+            ("Normal Voltage", "215 to 240"),
         ]
 
         for i, (label, value) in enumerate(notes):
@@ -799,6 +809,7 @@ def build_abnormal_parameter_summary(abnormal_df):
     summary = pd.DataFrame({
         "Parameter": [
             "Hydrostatic",
+            "Chlorine",
             "Radar Level",
             "Pressure",
             "Turbidity",
@@ -806,6 +817,7 @@ def build_abnormal_parameter_summary(abnormal_df):
         ],
         "Count": [
             abnormal_df["Abnormal Hydrostatic Level"].notna().sum(),
+            abnormal_df["Abnormal Chlorine(PPM) Reading"].notna().sum(),
             abnormal_df["Abnormal Radar Level"].notna().sum(),
             abnormal_df["Abnormal Pressure(BAR) Reading"].notna().sum(),
             abnormal_df["Abnormal Turbidity (NTU)"].notna().sum(),
@@ -829,6 +841,7 @@ def build_top_critical_sites(less_df, abnormal_df, top_n=10):
     if not abnormal_df.empty:
         ab_cols = [
             "Abnormal Hydrostatic Level",
+            "Abnormal Chlorine(PPM) Reading"
             "Abnormal Radar Level",
             "Abnormal Pressure(BAR) Reading",
             "Abnormal Turbidity (NTU)",
