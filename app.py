@@ -1232,4 +1232,3 @@ if uploaded is not None:
                             with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
                                 df_kpi = pd.DataFrame({"Abnormal KPI": kpis})
                                 st.table(df_kpi)
-
