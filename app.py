@@ -637,12 +637,14 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     avg_fill = PatternFill("solid", fgColor="E2F0D9")        # light green
     note_font = Font(bold=True, color="000000")
 
+    
     def format_sheet(ws):
         # Format header row
         for cell in wscell.fill = header_fill
             cell.font = header_font
             cell.alignment = align_center
             cell.border = border_all
+
 
         maxlen = {}
 
