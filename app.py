@@ -776,6 +776,8 @@ def create_output_excel(
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
         abnormal_df.to_excel(w, sheet_name="ABNORMAL SITES", index=False)
+        critical_df = build_critical_sites(abnormal_df)
+        critical_df.to_excel(w, sheet_name="CRITICAL SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
@@ -966,38 +968,54 @@ def build_abnormal_parameter_summary(abnormal_df):
     summary = summary[summary["Count"] > 0].copy()
     return summary
 
-def build_top_critical_sites(less_df, abnormal_df, top_n=10):
-    critical_frames = []
+def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build Critical Sites sheet (count + severity).
+    """
+    if abnormal_df.empty:
+        return pd.DataFrame(columns=[
+            "Sr.No", "Scheme Id", "Scheme Name",
+            "Abnormality Count", "Severity Score"
+        ])
 
-    if not less_df.empty:
-        x = less_df[["Scheme Id", "Scheme Name", "Percentage"]].copy()
-        x["Issue Type"] = "Low Supply"
-        x["Severity Score"] = 100 - pd.to_numeric(x["Percentage"], errors="coerce").fillna(0)
-        critical_frames.append(x)
+    # Select the 8 KPI columns
+    kpi_cols = [
+        "Abnormal Hydrostatic Level",
+        "Chlorine(PPM)",
+        "Abnormal Radar Level",
+        "Abnormal Pressure(BAR) Reading",
+        "Abnormal Turbidity (NTU)",
+        "Abnormal Voltage",
+        "Abnormal LPCD",
+        "Static Totalizer",
+    ]
 
-    if not abnormal_df.empty:
-        ab_cols = [
-            "Abnormal Hydrostatic Level",
-            "Chlorine(PPM)",
-            "Abnormal Radar Level",
-            "Abnormal Pressure(BAR) Reading",
-            "Abnormal Turbidity (NTU)",
-            "Abnormal Voltage",
-            "Abnormal LPCD",
-            "Static Totalizer",
-        ]
-        y = abnormal_df[["Scheme Id", "Scheme Name"] + ab_cols].copy()
-        y["Abnormal Count"] = y[ab_cols].notna().sum(axis=1)
-        y["Issue Type"] = "Abnormal Reading"
-        y["Severity Score"] = y["Abnormal Count"] * 20
-        y = y[["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"]]
-        critical_frames.append(y)
+    # Count abnormal KPIs per row
+    abnormal_df["Abnormality Count"] = abnormal_df[kpi_cols].notna().sum(axis=1)
 
-    if not critical_frames:
-        return pd.DataFrame(columns=["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"])
+    # Remove rows with 0 abnormalities
+    abnormal_df = abnormal_df[abnormal_df["Abnormality Count"] > 0].copy()
 
-    out = pd.concat(critical_frames, ignore_index=True)
-    out = out.sort_values("Severity Score", ascending=False).head(top_n).copy()
+    # Severity classification
+    def severity(n):
+        if n >= 6:
+            return "HIGH"
+        elif n >= 3:
+            return "MEDIUM"
+        else:
+            return "LOW"
+
+    abnormal_df["Severity Score"] = abnormal_df["Abnormality Count"].apply(severity)
+
+    out = abnormal_df[[
+        "Scheme Id",
+        "Scheme Name",
+        "Abnormality Count",
+        "Severity Score"
+    ]].copy()
+
+    out.insert(0, "Sr.No", range(1, len(out) + 1))
+
     return out
 
 # ---------------------------
@@ -1165,24 +1183,43 @@ if uploaded is not None:
             # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
             # -------------------------------------------------------
             with tab6:
-                st.subheader("🚨 Top Critical Sites (Auto-Scored)")
+                st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
 
-                if critical_sites.empty:
+                critical_df = build_critical_sites(abnormal_df)
+
+                if critical_df.empty:
                     st.info("No critical issues found today ✅")
                 else:
-                    st.dataframe(critical_sites, use_container_width=True)
+                    st.dataframe(critical_df, use_container_width=True)
 
-            # Download
-            st.download_button(
-                "⬇️ Download Excel Report",
-                data=out_bytes,
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+                    st.markdown("### Click on any row below to view abnormal KPIs")
 
-        except Exception as e:
-            st.error("Error while generating report. Please check the uploaded file format/columns.")
-            st.exception(e)
+                    # Create dictionary of KPI names per site
+                    kpi_cols = [
+                        "Abnormal Hydrostatic Level",
+                        "Chlorine(PPM)",
+                        "Abnormal Radar Level",
+                        "Abnormal Pressure(BAR) Reading",
+                        "Abnormal Turbidity (NTU)",
+                        "Abnormal Voltage",
+                        "Abnormal LPCD",
+                        "Static Totalizer",
+                    ]
 
-else:
-    st.warning("Please upload the JJMUP export file to proceed.")
+                    for idx, row in critical_df.iterrows():
+                        scheme = row["Scheme Name"]
+                        sid = row["Scheme Id"]
+
+                        ab_row = abnormal_df[
+                            (abnormal_df["Scheme Id"] == sid) &
+                            (abnormal_df["Scheme Name"] == scheme)
+                    ]
+
+                    if not ab_row.empty:
+                        kpis = []
+                        for c in kpi_cols:
+                            if pd.notna(ab_row.iloc[0][c]):
+                                kpis.append(c)
+
+                        with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
+                            st.table(pd.DataFrame({"Abnormal KPI": kpis}))
