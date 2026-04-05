@@ -713,11 +713,12 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
         notes = [
             ("Normal Hydrostatic Level", "15 to 22.5"),
             ("Normal Chlorine(PPM)", "0.15 to 0.5"),
-            ("Normal Radar Level", ">0 to 5.5"),
-            ("Normal Pressure(BAR)", "Pump ON: 1.45 to 1.95 | Pump OFF: 0"),
-            ("Normal Turbidity(NTU)", ">0 to 5"),
+            ("Normal Radar Level", "0+ to 5.5"),
+            ("Normal Pressure(BAR)", "1.45 to 1.95"),
+            ("Normal Turbidity(NTU)", "0+ to 5"),
+            ("Normal Voltage", "215 to 240"),
             ("Normal Weekly LPCD", ">=55"),
-            ("Static Totalizer abnormal when", "Today Production = 0 and Yesterday OHT Supply = 0"),
+            
         ]
 
         for i, (label, value) in enumerate(notes):
