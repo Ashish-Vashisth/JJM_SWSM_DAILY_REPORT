@@ -642,7 +642,6 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             cell.font = header_font
             cell.alignment = align_center
             cell.border = border_all
-
         maxlen = {}
         for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
             for cell in r:
