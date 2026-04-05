@@ -1225,8 +1225,4 @@ if uploaded is not None:
                             (abnormal_df["Scheme Name"] == scheme)
                         ]
 
-                        if not ab_row.empty:
-                            kpis = []
-                            for c in kpi_cols:
-                                if pd.notna(ab_row.iloc[0][c]):
-                                    kpis.append(c)
+                       
