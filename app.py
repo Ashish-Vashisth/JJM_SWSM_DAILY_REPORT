@@ -1221,5 +1221,6 @@ if uploaded is not None:
                             if pd.notna(ab_row.iloc[0][c]):
                                 kpis.append(c)
 
-                        with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
-                            st.table(pd.DataFrame({"Abnormal KPI": kpis}))
+                            with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
+                                df_kpi = pd.DataFrame({"Abnormal KPI": kpis})
+                                st.table(df_kpi)
