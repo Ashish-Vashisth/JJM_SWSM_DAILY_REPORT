@@ -717,7 +717,7 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             ("Normal Pressure(BAR)", "1.45 to 1.95"),
             ("Normal Turbidity(NTU)", "0+ to 5"),
             ("Normal Voltage", "215 to 240"),
-            ("Normal Weekly LPCD", ">=55"),
+            ("Normal LPCD", ">=55"),
             
         ]
 
