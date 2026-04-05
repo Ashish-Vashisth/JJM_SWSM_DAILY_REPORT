@@ -29,6 +29,34 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
 
+If value is greater than 55 → normal, else abnormal, Yes it is normal."From your earlier reporting style, I suspect you probably mean: Weekly LPCD >= 55 normal, and < 55 abnormal", Yes you are right. I understand the correct intended range is 0.15 to 0.5,- Yes. I understand this as > 0 and <= 5.5. Yes. abnormal when Weekly LPCD < 55, Yes. import plotly.express as px
+import plotly.graph_objects as go
+import re
+from io import BytesIO, StringIO
+from datetime import datetime
+
+import pandas as pd
+import streamlit as st
+PLOTLY_DARK_THEME = {
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+    "font": {"color": "white", "size": 14},
+    "legend": {"font": {"color": "white", "size": 14}},
+    "title": {"font": {"color": "white", "size": 18}},
+}
+
+from openpyxl import load_workbook
+from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
+
+# ===========================
+# Branding: Background + Top-left watermark (Base64, JPG)
+# ===========================
+# Paste your Base64 (JPG) strings below (inside quotes)
+BACKGROUND_B64 = """/9j/4............"""# ---------------------------
+# Branding / UI CSS (IMPROVED VISIBILITY)
+# ---------------------------
+
 def apply_branding(
     bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
@@ -437,45 +465,19 @@ def build_lpcd_status(df: pd.DataFrame) -> pd.DataFrame:
 def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     """
     Creates ABNORMAL SITES sheet with only those sites having at least one abnormal value.
-    Blank/NaN source values stay blank (not displayed as abnormal).
+    Blank/NaN source values are kept blank (not treated as abnormal display values).
     """
     df = flatten_columns(df)
     norm = normalize_columns(df)
 
-    # Core identifier columns
+    # Keep source A, B, C equivalent columns
     sno_col = df.columns[0]
     scheme_id_col = find_col_contains(norm, "schemeid")
     scheme_name_col = find_col_contains(norm, "schemename")
-    pump_status_col = find_col_contains(norm, "pumpstatus")
 
-    # Source KPI columns
+    # Find source abnormal columns by heading fragments
     hydro_col = find_col_contains(norm, "groundwaterdepth", "avg", "meter")
-    chlorine_col = find_col_contains(norm, "chlorine", "ppm")
-    pressure_col = find_col_contains(norm, "pressure", "bar")
-    turbidity_col = find_col_contains(norm, "turbidity", "ntu")
-    voltage_col = find_col_contains(norm, "voltagern")
-    today_prod_col = find_col_contains(norm, "today", "waterproduction", "meter3")
-    overall_prod_col = find_col_contains(norm, "overallproductionwater", "meter3")
 
-    # OHT yesterday supply column
-    yest_supply_col = None
-    for c, cn in norm.items():
-        if ("oht" in cn) and ("watersupply" in cn) and ("meter3" in cn) and ("yesterday" in cn):
-            yest_supply_col = c
-            break
-    if yest_supply_col is None:
-        raise KeyError("Could not find 'OHT Water Supply (Meter3) Yesterday' column.")
-
-    # Weekly LPCD column
-    lpcd_weekly_col = None
-    for c, cn in norm.items():
-        if ("avglpcd" in cn or "lpcd" in cn) and ("weekly" in cn):
-            lpcd_weekly_col = c
-            break
-    if lpcd_weekly_col is None:
-        raise KeyError("Could not find weekly LPCD column.")
-
-    # OHT level / radar column
     radar_col = None
     for c, cn in norm.items():
         if "ohtlevel" in cn and "valueinm" in cn:
@@ -484,21 +486,19 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     if radar_col is None:
         raise KeyError("Could not find 'OHT Level (Value in M)' column.")
 
+    pressure_col = find_col_contains(norm, "pressure", "bar")
+    turbidity_col = find_col_contains(norm, "turbidity", "ntu")
+    voltage_col = find_col_contains(norm, "voltagern")
+
     abnormal_df = df[[
         sno_col,
         scheme_id_col,
         scheme_name_col,
         hydro_col,
-        chlorine_col,
         radar_col,
         pressure_col,
         turbidity_col,
         voltage_col,
-        lpcd_weekly_col,
-        overall_prod_col,
-        pump_status_col,
-        today_prod_col,
-        yest_supply_col,
     ]].copy()
 
     abnormal_df.columns = [
@@ -506,113 +506,48 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
         "Scheme Id",
         "Scheme Name",
         "Abnormal Hydrostatic Level",
-        "Chlorine(PPM)",
         "Abnormal Radar Level",
         "Abnormal Pressure(BAR) Reading",
         "Abnormal Turbidity (NTU)",
         "Abnormal Voltage",
-        "Abnormal LPCD",
-        "Static Totalizer",
-        "Pump Status",
-        "Today Water Production (Meter3)",
-        "Yesterday OHT Water Supply (Meter3)",
     ]
 
-    numeric_cols = [
+    abnormal_cols = [
         "Abnormal Hydrostatic Level",
-        "Chlorine(PPM)",
         "Abnormal Radar Level",
         "Abnormal Pressure(BAR) Reading",
         "Abnormal Turbidity (NTU)",
         "Abnormal Voltage",
-        "Abnormal LPCD",
-        "Static Totalizer",
-        "Today Water Production (Meter3)",
-        "Yesterday OHT Water Supply (Meter3)",
     ]
-    for c in numeric_cols:
+
+    for c in abnormal_cols:
         abnormal_df[c] = pd.to_numeric(abnormal_df[c], errors="coerce")
 
-    abnormal_df["Pump Status"] = abnormal_df["Pump Status"].astype(str).str.strip().str.upper()
-
     hydro_vals = abnormal_df["Abnormal Hydrostatic Level"]
-    chlorine_vals = abnormal_df["Chlorine(PPM)"]
     radar_vals = abnormal_df["Abnormal Radar Level"]
     pressure_vals = abnormal_df["Abnormal Pressure(BAR) Reading"]
     turbidity_vals = abnormal_df["Abnormal Turbidity (NTU)"]
     voltage_vals = abnormal_df["Abnormal Voltage"]
-    lpcd_vals = abnormal_df["Abnormal LPCD"]
-    totalizer_vals = abnormal_df["Static Totalizer"]
-    today_vals = abnormal_df["Today Water Production (Meter3)"]
-    yest_vals = abnormal_df["Yesterday OHT Water Supply (Meter3)"]
-    pump_vals = abnormal_df["Pump Status"]
 
     # Abnormal rules
     hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(15, 22.5, inclusive="both")
-    chlorine_abnormal = chlorine_vals.notna() & ~chlorine_vals.between(0.15, 0.5, inclusive="both")
     radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 5.5))
+    pressure_abnormal = pressure_vals.notna() & ~pressure_vals.between(1.45, 1.95, inclusive="both")
     turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
     voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 240))
-    lpcd_abnormal = lpcd_vals.notna() & (lpcd_vals < 55)
-
-    # Pressure logic depends on Pump Status
-    pressure_abnormal = pd.Series(False, index=abnormal_df.index)
-
-    pressure_on_mask = pressure_vals.notna() & (pump_vals == "ON")
-    pressure_off_mask = pressure_vals.notna() & (pump_vals == "OFF")
-    pressure_other_mask = pressure_vals.notna() & ~(pump_vals.isin(["ON", "OFF"]))
-
-    pressure_abnormal.loc[pressure_on_mask] = ~pressure_vals.loc[pressure_on_mask].between(1.45, 1.95, inclusive="both")
-    pressure_abnormal.loc[pressure_off_mask] = ~(pressure_vals.loc[pressure_off_mask] == 0)
-    pressure_abnormal.loc[pressure_other_mask] = True
-
-    # Static Totalizer abnormal only when Today Production = 0 AND Yesterday OHT Supply = 0
-    totalizer_abnormal = (
-        totalizer_vals.notna()
-        & today_vals.notna()
-        & yest_vals.notna()
-        & (today_vals == 0)
-        & (yest_vals == 0)
-    )
 
     # Keep only abnormal values, blank out normal values
     abnormal_df.loc[~hydro_abnormal, "Abnormal Hydrostatic Level"] = pd.NA
-    abnormal_df.loc[~chlorine_abnormal, "Chlorine(PPM)"] = pd.NA
     abnormal_df.loc[~radar_abnormal, "Abnormal Radar Level"] = pd.NA
     abnormal_df.loc[~pressure_abnormal, "Abnormal Pressure(BAR) Reading"] = pd.NA
     abnormal_df.loc[~turbidity_abnormal, "Abnormal Turbidity (NTU)"] = pd.NA
     abnormal_df.loc[~voltage_abnormal, "Abnormal Voltage"] = pd.NA
-    abnormal_df.loc[~lpcd_abnormal, "Abnormal LPCD"] = pd.NA
-    abnormal_df.loc[~totalizer_abnormal, "Static Totalizer"] = pd.NA
-
-    keep_cols = [
-        "Abnormal Hydrostatic Level",
-        "Chlorine(PPM)",
-        "Abnormal Radar Level",
-        "Abnormal Pressure(BAR) Reading",
-        "Abnormal Turbidity (NTU)",
-        "Abnormal Voltage",
-        "Abnormal LPCD",
-        "Static Totalizer",
-    ]
 
     # Keep only rows having at least one abnormal reading
-    at_least_one_abnormal = abnormal_df[keep_cols].notna().any(axis=1)
-    abnormal_df = abnormal_df.loc[at_least_one_abnormal, [
-        "Sr.no",
-        "Scheme Id",
-        "Scheme Name",
-        "Abnormal Hydrostatic Level",
-        "Chlorine(PPM)",
-        "Abnormal Radar Level",
-        "Abnormal Pressure(BAR) Reading",
-        "Abnormal Turbidity (NTU)",
-        "Abnormal Voltage",
-        "Abnormal LPCD",
-        "Static Totalizer",
-    ]].copy()
-
+    at_least_one_abnormal = abnormal_df[abnormal_cols].notna().any(axis=1)
+    abnormal_df = abnormal_df.loc[at_least_one_abnormal].copy()
     abnormal_df.reset_index(drop=True, inplace=True)
+
     return abnormal_df
 
 
@@ -634,105 +569,54 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     abnormal_fill = PatternFill("solid", fgColor="FFC7CE")   # light red
     note_label_fill = PatternFill("solid", fgColor="D9EAF7") # light blue
     note_value_fill = PatternFill("solid", fgColor="FFF2CC") # light yellow
-    avg_fill = PatternFill("solid", fgColor="E2F0D9")        # light green
     note_font = Font(bold=True, color="000000")
 
     def format_sheet(ws):
-        # Format header row
         for cell in ws[1]:
             cell.fill = header_fill
-            cell.font = header_font
             cell.alignment = align_center
             cell.border = border_all
 
         maxlen = {}
-
-        # Format data rows
-        for r in ws.iter_rows(
-            min_row=2,
-            max_row=ws.max_row,
-            min_col=1,
-            max_col=ws.max_column
-        ):
+        for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
             for cell in r:
                 cell.border = border_all
                 cell.alignment = align_left if cell.column == 3 else align_center
                 val = "" if cell.value is None else str(cell.value)
-                maxlen[cell.column] = max(
-                    maxlen.get(cell.column, 0), len(val)
-                )
+                maxlen[cell.column] = max(maxlen.get(cell.column, 0), len(val))
 
-        # Adjust column widths
         for c in range(1, ws.max_column + 1):
             header_val = str(ws.cell(row=1, column=c).value or "")
             maxlen[c] = max(maxlen.get(c, 0), len(header_val))
-            width = maxlen[c]
-            ws.column_dimensions[get_column_letter(c)].width = max(
-                10, min(60, int(width * 1.2) + 2)
-            )
-        
+            width = maxlen.get(c, 0)
+            ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
 
-    # -----------------------------
-    # LPCD STATUS
-    # -----------------------------
-    if "LPCD STATUS" in wb.sheetnames:
-        ws = wb["LPCD STATUS"]
-        format_sheet(ws)
-
-        last_data_row = ws.max_row
-        avg_row = last_data_row + 1
-
-        ws.cell(row=avg_row, column=3, value="Average")
-
-        for col in [4, 5, 6]:
-            values = [ws.cell(row=r, column=col).value for r in range(2, last_data_row + 1)]
-            s = pd.to_numeric(pd.Series(values), errors="coerce").dropna()
-            avg_val = round(float(s.mean()), 2) if not s.empty else None
-            cell = ws.cell(row=avg_row, column=col, value=avg_val)
-            cell.number_format = "0.00"
-
-        for col in range(1, ws.max_column + 1):
-            cell = ws.cell(row=avg_row, column=col)
-            cell.border = border_all
-            cell.alignment = align_left if col == 3 else align_center
-            cell.font = note_font
-            cell.fill = avg_fill
-
-    # -----------------------------
-    # Other existing sheets
-    # -----------------------------
-    for sheet in ["SUPPLIED WATER LESS THAN 75", "ZERO(INACTIVE SITES)", "TODAY ZERO SITES"]:
+    # Format existing 4 sheets
+    for sheet in ["LPCD STATUS", "SUPPLIED WATER LESS THAN 75", "ZERO(INACTIVE SITES)", "TODAY ZERO SITES"]:
         if sheet in wb.sheetnames:
             format_sheet(wb[sheet])
 
-    # -----------------------------
-    # ABNORMAL SITES
-    # -----------------------------
+    # Format ABNORMAL SITES with extra highlighting and notes
     if "ABNORMAL SITES" in wb.sheetnames:
         ws = wb["ABNORMAL SITES"]
         format_sheet(ws)
 
-        data_last_row = ws.max_row
-
-        # Highlight all abnormal value columns (D onward) only where value exists
-        for row in range(2, data_last_row + 1):
-            for col in range(4, ws.max_column + 1):
+        # Highlight abnormal values in D:H only where value exists
+        for row in range(2, ws.max_row + 1):
+            for col in range(4, 9):
                 cell = ws.cell(row=row, column=col)
                 if cell.value not in (None, ""):
                     cell.fill = abnormal_fill
                     cell.font = note_font
 
-        # Add acceptable / normal values at the bottom
+        # Add acceptable / normal values at the bottom (NO voltage text)
         start_row = ws.max_row + 2
         notes = [
             ("Normal Hydrostatic Level", "15 to 22.5"),
-            ("Normal Chlorine(PPM)", "0.15 to 0.5"),
             ("Normal Radar Level", "0+ to 5.5"),
-            ("Normal Pressure(BAR)", "1.45 to 1.95"),
+            ("Normal Pressure(BAR) Reading", "1.45 to 1.95"),
             ("Normal Turbidity(NTU)", "0+ to 5"),
-            ("Normal Voltage", "215 to 240"),
-            ("Normal Weekly LPCD", ">=55"),
-            ]
+        ]
 
         for i, (label, value) in enumerate(notes):
             r = start_row + i
@@ -751,8 +635,8 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             label_cell.border = border_all
             value_cell.border = border_all
 
-        ws.column_dimensions["A"].width = max(ws.column_dimensions["A"].width or 10, 34)
-        ws.column_dimensions["B"].width = max(ws.column_dimensions["B"].width or 10, 42)
+        ws.column_dimensions["A"].width = max(ws.column_dimensions["A"].width or 10, 32)
+        ws.column_dimensions["B"].width = max(ws.column_dimensions["B"].width or 10, 18)
 
     out = BytesIO()
     wb.save(out)
@@ -776,8 +660,6 @@ def create_output_excel(
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
         abnormal_df.to_excel(w, sheet_name="ABNORMAL SITES", index=False)
-        critical_df = build_critical_sites(abnormal_df)
-        critical_df.to_excel(w, sheet_name="CRITICAL SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
@@ -945,77 +827,53 @@ def build_abnormal_parameter_summary(abnormal_df):
     summary = pd.DataFrame({
         "Parameter": [
             "Hydrostatic",
-            "Chlorine",
             "Radar Level",
             "Pressure",
             "Turbidity",
-            "Voltage",
-            "Weekly LPCD",
-            "Static Totalizer",
+            "Voltage"
         ],
         "Count": [
             abnormal_df["Abnormal Hydrostatic Level"].notna().sum(),
-            abnormal_df["Chlorine(PPM)"].notna().sum(),
             abnormal_df["Abnormal Radar Level"].notna().sum(),
             abnormal_df["Abnormal Pressure(BAR) Reading"].notna().sum(),
             abnormal_df["Abnormal Turbidity (NTU)"].notna().sum(),
             abnormal_df["Abnormal Voltage"].notna().sum(),
-            abnormal_df["Abnormal LPCD"].notna().sum(),
-            abnormal_df["Static Totalizer"].notna().sum(),
         ]
     })
 
     summary = summary[summary["Count"] > 0].copy()
     return summary
 
-def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Build Critical Sites sheet (count + severity).
-    """
-    if abnormal_df.empty:
-        return pd.DataFrame(columns=[
-            "Sr.No", "Scheme Id", "Scheme Name",
-            "Abnormality Count", "Severity Score"
-        ])
 
-    # Select the 8 KPI columns
-    kpi_cols = [
-        "Abnormal Hydrostatic Level",
-        "Chlorine(PPM)",
-        "Abnormal Radar Level",
-        "Abnormal Pressure(BAR) Reading",
-        "Abnormal Turbidity (NTU)",
-        "Abnormal Voltage",
-        "Abnormal LPCD",
-        "Static Totalizer",
-    ]
+def build_top_critical_sites(less_df, abnormal_df, top_n=10):
+    critical_frames = []
 
-    # Count abnormal KPIs per row
-    abnormal_df["Abnormality Count"] = abnormal_df[kpi_cols].notna().sum(axis=1)
+    if not less_df.empty:
+        x = less_df[["Scheme Id", "Scheme Name", "Percentage"]].copy()
+        x["Issue Type"] = "Low Supply"
+        x["Severity Score"] = 100 - pd.to_numeric(x["Percentage"], errors="coerce").fillna(0)
+        critical_frames.append(x)
 
-    # Remove rows with 0 abnormalities
-    abnormal_df = abnormal_df[abnormal_df["Abnormality Count"] > 0].copy()
+    if not abnormal_df.empty:
+        ab_cols = [
+            "Abnormal Hydrostatic Level",
+            "Abnormal Radar Level",
+            "Abnormal Pressure(BAR) Reading",
+            "Abnormal Turbidity (NTU)",
+            "Abnormal Voltage",
+        ]
+        y = abnormal_df[["Scheme Id", "Scheme Name"] + ab_cols].copy()
+        y["Abnormal Count"] = y[ab_cols].notna().sum(axis=1)
+        y["Issue Type"] = "Abnormal Reading"
+        y["Severity Score"] = y["Abnormal Count"] * 20
+        y = y[["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"]]
+        critical_frames.append(y)
 
-    # Severity classification
-    def severity(n):
-        if n >= 6:
-            return "HIGH"
-        elif n >= 3:
-            return "MEDIUM"
-        else:
-            return "LOW"
+    if not critical_frames:
+        return pd.DataFrame(columns=["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"])
 
-    abnormal_df["Severity Score"] = abnormal_df["Abnormality Count"].apply(severity)
-
-    out = abnormal_df[[
-        "Scheme Id",
-        "Scheme Name",
-        "Abnormality Count",
-        "Severity Score"
-    ]].copy()
-
-    out.insert(0, "Sr.No", range(1, len(out) + 1))
-
+    out = pd.concat(critical_frames, ignore_index=True)
+    out = out.sort_values("Severity Score", ascending=False).head(top_n).copy()
     return out
 
 # ---------------------------
@@ -1085,19 +943,18 @@ if uploaded is not None:
             st.markdown("## 📊 Overview Dashboard")
 
             # Build summaries
-            status_summary = build_site_status_summary(
-                lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold
-            )
+            status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
             severity_summary = build_supply_severity_summary(less_df, threshold)
             abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
+            critical_sites = build_top_critical_sites(less_df, abnormal_df)
 
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-                "Summary",
-                "LPCD STATUS",
-                "SUPPLIED < Threshold",
-                "ZERO / INACTIVE",
-                "ABNORMAL SITES",
-                "Critical Sites"
+            "Summary",
+            "LPCD STATUS",
+            "SUPPLIED < Threshold",
+            "ZERO / INACTIVE",
+            "ABNORMAL SITES",
+            "Critical Sites"
             ])
 
             # -------------------------------------------------------
@@ -1122,6 +979,7 @@ if uploaded is not None:
                 st.markdown("### ✅ Abnormal Parameters")
                 make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
 
+
             # -------------------------------------------------------
             # TAB 2 — LPCD STATUS
             # -------------------------------------------------------
@@ -1133,17 +991,13 @@ if uploaded is not None:
                 c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
                 c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
+            # Top 10 Lowest LPCD Weekly
                 st.markdown("### 🔽 Lowest LPCD Weekly (Top 10)")
-                top10_lpcd = lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[
-                    ["Scheme Name", "Avg LPCD (Weekly)"]
-                ]
-                make_bar_chart(
-                    top10_lpcd,
-                    "Scheme Name",
-                    "Avg LPCD (Weekly)",
-                    "Lowest LPCD (Weekly)",
-                    color="#00BFFF"
-                )
+                top10_lpcd = (
+                lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[["Scheme Name", "Avg LPCD (Weekly)"]]
+            )
+                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Weekly)", "Lowest LPCD (Weekly)", color="#00BFFF")
+
 
             # -------------------------------------------------------
             # TAB 3 — SUPPLIED < THRESHOLD
@@ -1155,74 +1009,56 @@ if uploaded is not None:
                 c1.metric("Below Threshold Sites", len(less_df))
                 c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
 
+            # Top 10 worst supply % 
                 st.markdown("### 🔽 Lowest Supply % (Top 10)")
-                worst10 = less_df.sort_values("Percentage").head(10)[
-                    ["Scheme Name", "Percentage"]
-                ]
-                make_bar_chart(
-                    worst10,
-                    "Scheme Name",
-                    "Percentage",
-                    "Worst 10 Supply %",
-                    color="#FF4B4B"
-                )
+                worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
+                make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
+
 
             # -------------------------------------------------------
             # TAB 4 — ZERO / INACTIVE SITES
             # -------------------------------------------------------
             with tab4:
                 st.subheader("Zero / Inactive Sites")
+
                 st.metric("Total Inactive Sites", len(zero_df))
                 st.dataframe(zero_df, use_container_width=True)
+
 
             # -------------------------------------------------------
             # TAB 5 — ABNORMAL SITES
             # -------------------------------------------------------
             with tab5:
                 st.subheader("Abnormal Instrument Readings")
+
                 st.metric("Total Abnormal Sites", len(abnormal_df))
-                make_donut_chart(
-                    abnormal_param_summary,
-                    "Parameter",
-                    "Count",
-                    "Abnormal Parameter Breakdown"
-                )
+
+                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
                 st.dataframe(abnormal_df, use_container_width=True)
 
+
             # -------------------------------------------------------
-            # TAB 6 — CRITICAL SITES
+            # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
             # -------------------------------------------------------
             with tab6:
-                st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
+                st.subheader("🚨 Top Critical Sites (Auto-Scored)")
 
-                critical_df = build_critical_sites(abnormal_df)
-
-                if critical_df.empty:
+                if critical_sites.empty:
                     st.info("No critical issues found today ✅")
                 else:
-                    st.dataframe(critical_df, use_container_width=True)
+                    st.dataframe(critical_sites, use_container_width=True)
 
-                    st.markdown("### Click on any row below to view abnormal KPIs")
+            # Download
+            st.download_button(
+                "⬇️ Download Excel Report",
+                data=out_bytes,
+                file_name=out_name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
-                    # Create dictionary of KPI names per site
-                    kpi_cols = [
-                        "Abnormal Hydrostatic Level",
-                        "Chlorine(PPM)",
-                        "Abnormal Radar Level",
-                        "Abnormal Pressure(BAR) Reading",
-                        "Abnormal Turbidity (NTU)",
-                        "Abnormal Voltage",
-                        "Abnormal LPCD",
-                        "Static Totalizer",
-                    ]
+        except Exception as e:
+            st.error("Error while generating report. Please check the uploaded file format/columns.")
+            st.exception(e)
 
-                    for idx, row in critical_df.iterrows():
-                        scheme = row["Scheme Name"]
-                        sid = row["Scheme Id"]
-
-                        ab_row = abnormal_df[
-                            (abnormal_df["Scheme Id"] == sid) &
-                            (abnormal_df["Scheme Name"] == scheme)
-                        ]
-
-                       
+else:
+    st.warning("Please upload the JJMUP export file to proceed.")
