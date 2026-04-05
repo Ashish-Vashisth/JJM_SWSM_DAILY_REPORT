@@ -1230,6 +1230,3 @@ if uploaded is not None:
                             for c in kpi_cols:
                                 if pd.notna(ab_row.iloc[0][c]):
                                     kpis.append(c)
-
-                            with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
-                                
