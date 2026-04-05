@@ -1085,18 +1085,19 @@ if uploaded is not None:
             st.markdown("## 📊 Overview Dashboard")
 
             # Build summaries
-            status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
+            status_summary = build_site_status_summary(
+                lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold
+            )
             severity_summary = build_supply_severity_summary(less_df, threshold)
             abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
-            critical_sites = build_top_critical_sites(less_df, abnormal_df)
 
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "Summary",
-            "LPCD STATUS",
-            "SUPPLIED < Threshold",
-            "ZERO / INACTIVE",
-            "ABNORMAL SITES",
-            "Critical Sites"
+                "Summary",
+                "LPCD STATUS",
+                "SUPPLIED < Threshold",
+                "ZERO / INACTIVE",
+                "ABNORMAL SITES",
+                "Critical Sites"
             ])
 
             # -------------------------------------------------------
@@ -1121,7 +1122,6 @@ if uploaded is not None:
                 st.markdown("### ✅ Abnormal Parameters")
                 make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
 
-
             # -------------------------------------------------------
             # TAB 2 — LPCD STATUS
             # -------------------------------------------------------
@@ -1133,13 +1133,17 @@ if uploaded is not None:
                 c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
                 c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
-            # Top 10 Lowest LPCD Weekly
                 st.markdown("### 🔽 Lowest LPCD Weekly (Top 10)")
-                top10_lpcd = (
-                lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[["Scheme Name", "Avg LPCD (Weekly)"]]
-            )
-                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Weekly)", "Lowest LPCD (Weekly)", color="#00BFFF")
-
+                top10_lpcd = lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[
+                    ["Scheme Name", "Avg LPCD (Weekly)"]
+                ]
+                make_bar_chart(
+                    top10_lpcd,
+                    "Scheme Name",
+                    "Avg LPCD (Weekly)",
+                    "Lowest LPCD (Weekly)",
+                    color="#00BFFF"
+                )
 
             # -------------------------------------------------------
             # TAB 3 — SUPPLIED < THRESHOLD
@@ -1151,36 +1155,42 @@ if uploaded is not None:
                 c1.metric("Below Threshold Sites", len(less_df))
                 c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
 
-            # Top 10 worst supply % 
                 st.markdown("### 🔽 Lowest Supply % (Top 10)")
-                worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
-                make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
-
+                worst10 = less_df.sort_values("Percentage").head(10)[
+                    ["Scheme Name", "Percentage"]
+                ]
+                make_bar_chart(
+                    worst10,
+                    "Scheme Name",
+                    "Percentage",
+                    "Worst 10 Supply %",
+                    color="#FF4B4B"
+                )
 
             # -------------------------------------------------------
             # TAB 4 — ZERO / INACTIVE SITES
             # -------------------------------------------------------
             with tab4:
                 st.subheader("Zero / Inactive Sites")
-
                 st.metric("Total Inactive Sites", len(zero_df))
                 st.dataframe(zero_df, use_container_width=True)
-
 
             # -------------------------------------------------------
             # TAB 5 — ABNORMAL SITES
             # -------------------------------------------------------
             with tab5:
                 st.subheader("Abnormal Instrument Readings")
-
                 st.metric("Total Abnormal Sites", len(abnormal_df))
-
-                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
+                make_donut_chart(
+                    abnormal_param_summary,
+                    "Parameter",
+                    "Count",
+                    "Abnormal Parameter Breakdown"
+                )
                 st.dataframe(abnormal_df, use_container_width=True)
 
-
             # -------------------------------------------------------
-            # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
+            # TAB 6 — CRITICAL SITES
             # -------------------------------------------------------
             with tab6:
                 st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
@@ -1191,10 +1201,8 @@ if uploaded is not None:
                     st.info("No critical issues found today ✅")
                 else:
                     st.dataframe(critical_df, use_container_width=True)
+                    st.markdown("### Click below to view abnormal KPIs site-wise")
 
-                    st.markdown("### Click on any row below to view abnormal KPIs")
-
-                    # Create dictionary of KPI names per site
                     kpi_cols = [
                         "Abnormal Hydrostatic Level",
                         "Chlorine(PPM)",
@@ -1206,21 +1214,22 @@ if uploaded is not None:
                         "Static Totalizer",
                     ]
 
-                    for idx, row in critical_df.iterrows():
+                    for _, row in critical_df.iterrows():
                         scheme = row["Scheme Name"]
                         sid = row["Scheme Id"]
 
                         ab_row = abnormal_df[
                             (abnormal_df["Scheme Id"] == sid) &
                             (abnormal_df["Scheme Name"] == scheme)
-                    ]
+                        ]
 
-                    if not ab_row.empty:
-                        kpis = []
-                        for c in kpi_cols:
-                            if pd.notna(ab_row.iloc[0][c]):
-                                kpis.append(c)
+                        if not ab_row.empty:
+                            kpis = []
+                            for c in kpi_cols:
+                                if pd.notna(ab_row.iloc[0][c]):
+                                    kpis.append(c)
 
-                        with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
-                            df_kpi = pd.DataFrame({"Abnormal KPI": kpis})
-                            st.table(df_kpi)
+                            with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
+                                df_kpi = pd.DataFrame({"Abnormal KPI": kpis})
+                                st.table(df_kpi)
+
