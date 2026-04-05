@@ -1201,8 +1201,10 @@ if uploaded is not None:
                     st.info("No critical issues found today ✅")
                 else:
                     st.dataframe(critical_df, use_container_width=True)
-                    st.markdown("### Click below to view abnormal KPIs site-wise")
 
+                    st.markdown("### Click on any row below to view abnormal KPIs")
+
+                    # Create dictionary of KPI names per site
                     kpi_cols = [
                         "Abnormal Hydrostatic Level",
                         "Chlorine(PPM)",
@@ -1214,7 +1216,7 @@ if uploaded is not None:
                         "Static Totalizer",
                     ]
 
-                    for _, row in critical_df.iterrows():
+                    for idx, row in critical_df.iterrows():
                         scheme = row["Scheme Name"]
                         sid = row["Scheme Id"]
 
@@ -1230,5 +1232,4 @@ if uploaded is not None:
                                     kpis.append(c)
 
                             with st.expander(f"🔍 Abnormal KPIs → {scheme}"):
-                                df_kpi = pd.DataFrame({"Abnormal KPI": kpis})
-                                st.table(df_kpi)
+                                st.table(pd.DataFrame({"Abnormal KPI": kpis}))
