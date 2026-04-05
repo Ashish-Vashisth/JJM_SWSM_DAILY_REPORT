@@ -29,34 +29,6 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # Branding / UI CSS (IMPROVED VISIBILITY)
 # ---------------------------
 
-If value is greater than 55 → normal, else abnormal, Yes it is normal."From your earlier reporting style, I suspect you probably mean: Weekly LPCD >= 55 normal, and < 55 abnormal", Yes you are right. I understand the correct intended range is 0.15 to 0.5,- Yes. I understand this as > 0 and <= 5.5. Yes. abnormal when Weekly LPCD < 55, Yes. import plotly.express as px
-import plotly.graph_objects as go
-import re
-from io import BytesIO, StringIO
-from datetime import datetime
-
-import pandas as pd
-import streamlit as st
-PLOTLY_DARK_THEME = {
-    "paper_bgcolor": "rgba(0,0,0,0)",
-    "plot_bgcolor": "rgba(0,0,0,0)",
-    "font": {"color": "white", "size": 14},
-    "legend": {"font": {"color": "white", "size": 14}},
-    "title": {"font": {"color": "white", "size": 18}},
-}
-
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
-from openpyxl.utils import get_column_letter
-
-# ===========================
-# Branding: Background + Top-left watermark (Base64, JPG)
-# ===========================
-# Paste your Base64 (JPG) strings below (inside quotes)
-BACKGROUND_B64 = """/9j/4............"""# ---------------------------
-# Branding / UI CSS (IMPROVED VISIBILITY)
-# ---------------------------
-
 def apply_branding(
     bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
     card_opacity: float = 0.42          # lower = card less dark (still readable)
