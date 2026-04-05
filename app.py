@@ -638,10 +638,10 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     note_font = Font(bold=True, color="000000")
 
     def format_sheet(ws):
-    for cell in wscell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = align_center
-        cell.border = border_all
+        for cell in wscell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = align_center
+            cell.border = border_all
 
         maxlen = {}
         for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
