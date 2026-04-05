@@ -638,24 +638,37 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
     note_font = Font(bold=True, color="000000")
 
     def format_sheet(ws):
-        for cell in wscell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = align_center
+    # Format header row
+    for cell in wscell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = align_center
+        cell.border = border_all
+
+    maxlen = {}
+
+    # Format data rows
+    for r in ws.iter_rows(
+        min_row=2,
+        max_row=ws.max_row,
+        min_col=1,
+        max_col=ws.max_column
+    ):
+        for cell in r:
             cell.border = border_all
+            cell.alignment = align_left if cell.column == 3 else align_center
+            val = "" if cell.value is None else str(cell.value)
+            maxlen[cell.column] = max(
+                maxlen.get(cell.column, 0), len(val)
+            )
 
-        maxlen = {}
-        for r in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-            for cell in r:
-                cell.border = border_all
-                cell.alignment = align_left if cell.column == 3 else align_center
-                val = "" if cell.value is None else str(cell.value)
-                maxlen[cell.column] = max(maxlen.get(cell.column, 0), len(val))
-
-        for c in range(1, ws.max_column + 1):
-            header_val = str(ws.cell(row=1, column=c).value or "")
-            maxlen[c] = max(maxlen.get(c, 0), len(header_val))
-            width = maxlen.get(c, 0)
-            ws.column_dimensions[get_column_letter(c)].width = max(10, min(60, int(width * 1.2) + 2))
+    # Adjust column widths
+    for c in range(1, ws.max_column + 1):
+        header_val = str(ws.cell(row=1, column=c).value or "")
+        maxlen[c] = max(maxlen.get(c, 0), len(header_val))
+        width = maxlen[c]
+        ws.column_dimensions[get_column_letter(c)].width = max(
+            10, min(60, int(width * 1.2) + 2)
+        )
 
     # -----------------------------
     # LPCD STATUS
