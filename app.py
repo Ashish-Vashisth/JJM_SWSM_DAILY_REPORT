@@ -1245,7 +1245,7 @@ if uploaded is not None:
                     )
 
                 # Table
-                st.markdown("### 📄 Detailed Critical Sites Table")
+                st.markdown("### 📄 Detailed Table: Critical Sites")
                 st.dataframe(critical_df, use_container_width=True)
 
             # Download
