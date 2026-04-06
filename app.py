@@ -685,9 +685,14 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
             cell.fill = avg_fill
 
     # -----------------------------
-    # Other existing sheets
+    # FORMAT ALL EXISTING SHEETS
     # -----------------------------
-    for sheet in ["SUPPLIED WATER LESS THAN 75", "ZERO(INACTIVE SITES)", "TODAY ZERO SITES"]:
+    for sheet in [
+        "SUPPLIED WATER LESS THAN 75",
+        "ZERO(INACTIVE SITES)",
+        "TODAY ZERO SITES",
+        "CRITICAL SITES"   # NEW
+    ]:
         if sheet in wb.sheetnames:
             format_sheet(wb[sheet])
 
@@ -763,6 +768,8 @@ def create_output_excel(
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
         abnormal_df.to_excel(w, sheet_name="ABNORMAL SITES", index=False)
+        critical_df = build_critical_sites(abnormal_df)
+        critical_df.to_excel(w, sheet_name="CRITICAL SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
     return out_name, styled
@@ -954,39 +961,85 @@ def build_abnormal_parameter_summary(abnormal_df):
     return summary
 
 
-def build_top_critical_sites(less_df, abnormal_df, top_n=10):
-    critical_frames = []
+# -------------------------------------------------------
+# NEW CRITICAL SITES BUILDER (REPLACES OLD LOGIC)
+# -------------------------------------------------------
+def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create CRITICAL SITES sheet using only ABNORMAL SITES.
+    Columns:
+      Sr.no, Scheme Id, Scheme Name, Abnormality Count, Severity Score
+    Severity:
+      HIGH   = 6,7,8 abnormal KPIs
+      MEDIUM = 3,4,5 abnormal KPIs
+      LOW    = 1,2 abnormal KPIs
+    """
 
-    if not less_df.empty:
-        x = less_df[["Scheme Id", "Scheme Name", "Percentage"]].copy()
-        x["Issue Type"] = "Low Supply"
-        x["Severity Score"] = 100 - pd.to_numeric(x["Percentage"], errors="coerce").fillna(0)
-        critical_frames.append(x)
+    if abnormal_df.empty:
+        return pd.DataFrame(columns=[
+            "Sr.no", "Scheme Id", "Scheme Name",
+            "Abnormality Count", "Severity Score"
+        ])
 
-    if not abnormal_df.empty:
-        ab_cols = [
-            "Abnormal Hydrostatic Level",
-            "Chlorine(PPM)",
-            "Abnormal Radar Level",
-            "Abnormal Pressure(BAR) Reading",
-            "Abnormal Turbidity (NTU)",
-            "Abnormal Voltage",
-            "Abnormal LPCD",
-            "Static Totalizer",
-        ]
-        y = abnormal_df[["Scheme Id", "Scheme Name"] + ab_cols].copy()
-        y["Abnormal Count"] = y[ab_cols].notna().sum(axis=1)
-        y["Issue Type"] = "Abnormal Reading"
-        y["Severity Score"] = y["Abnormal Count"] * 20
-        y = y[["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"]]
-        critical_frames.append(y)
+    kpi_cols = [
+        "Static Totalizer",
+        "Abnormal Hydrostatic Level",
+        "Chlorine(PPM)",
+        "Abnormal Radar Level",
+        "Abnormal Pressure(BAR) Reading",
+        "Abnormal Turbidity (NTU)",
+        "Abnormal Voltage",
+        "Abnormal LPCD",
+    ]
 
-    if not critical_frames:
-        return pd.DataFrame(columns=["Scheme Id", "Scheme Name", "Issue Type", "Severity Score"])
+    df = abnormal_df.copy()
 
-    out = pd.concat(critical_frames, ignore_index=True)
-    out = out.sort_values("Severity Score", ascending=False).head(top_n).copy()
-    return out
+    # Count non‑blank abnormal KPIs
+    df["Abnormality Count"] = df[kpi_cols].notna().sum(axis=1)
+
+    # Severity classification
+    def severity(c):
+        if c >= 6:
+            return "HIGH"
+        elif c >= 3:
+            return "MEDIUM"
+        else:
+            return "LOW"
+
+    df["Severity Score"] = df["Abnormality Count"].apply(severity)
+
+    # Select required columns, maintain your exact header spellings
+    df = df[[
+        "Sr.no",
+        "Scheme Id",
+        "Scheme Name",
+        "Abnormality Count",
+        "Severity Score",
+    ]].copy()
+
+    # Sorting → HIGH → MEDIUM → LOW, then count desc
+    severity_rank = {"HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    df["sev_rank"] = df["Severity Score"].map(severity_rank)
+    df = df.sort_values(["sev_rank", "Abnormality Count"], ascending=[True, False])
+    df = df.drop(columns=["sev_rank"]).reset_index(drop=True)
+
+    return df
+
+
+def build_critical_summary(critical_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Creates summary for dashboard charts: HIGH/MEDIUM/LOW counts.
+    """
+    if critical_df.empty:
+        return pd.DataFrame(columns=["Severity", "Count"])
+
+    return (
+        critical_df["Severity Score"]
+        .value_counts()
+        .rename_axis("Severity")
+        .reset_index(name="Count")
+        .sort_values("Severity", key=lambda s: s.map({"HIGH": 1, "MEDIUM": 2, "LOW": 3}))
+    )
 
 # ---------------------------
 # Streamlit UI
@@ -1058,7 +1111,6 @@ if uploaded is not None:
             status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
             severity_summary = build_supply_severity_summary(less_df, threshold)
             abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
-            critical_sites = build_top_critical_sites(less_df, abnormal_df)
 
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "Summary",
@@ -1066,7 +1118,7 @@ if uploaded is not None:
             "SUPPLIED < Threshold",
             "ZERO / INACTIVE",
             "ABNORMAL SITES",
-            "Critical Sites"
+            "CRITICAL SITES"
             ])
 
             # -------------------------------------------------------
@@ -1150,15 +1202,51 @@ if uploaded is not None:
 
 
             # -------------------------------------------------------
-            # TAB 6 — CRITICAL SITES (MOST IMPORTANT)
+            # TAB 6 — CRITICAL SITES (REVISED)
             # -------------------------------------------------------
             with tab6:
-                st.subheader("🚨 Top Critical Sites (Auto-Scored)")
+                st.subheader("🚨 Critical Sites")
 
-                if critical_sites.empty:
-                    st.info("No critical issues found today ✅")
-                else:
-                    st.dataframe(critical_sites, use_container_width=True)
+                # Build new critical DF
+                critical_df = build_critical_sites(abnormal_df)
+                critical_summary = build_critical_summary(critical_df)
+
+                # Metrics row
+                total_crit = len(critical_df)
+                high_cnt = (critical_df["Severity Score"] == "HIGH").sum()
+                med_cnt = (critical_df["Severity Score"] == "MEDIUM").sum()
+                low_cnt = (critical_df["Severity Score"] == "LOW").sum()
+
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total Critical Sites", total_crit)
+                c2.metric("High Severity", high_cnt)
+                c3.metric("Medium Severity", med_cnt)
+                c4.metric("Low Severity", low_cnt)
+
+                # Charts side-by-side
+                st.markdown("### 📊 Severity Distribution")
+                colA, colB = st.columns(2)
+
+                with colA:
+                    make_donut_chart(
+                        critical_summary,
+                        "Severity",
+                        "Count",
+                        "Critical Sites — % wise"
+                    )
+
+                with colB:
+                    make_bar_chart(
+                        critical_summary,
+                        "Severity",
+                        "Count",
+                        "Critical Sites — Bar",
+                        color="#FF4B4B"
+                    )
+
+                # Table
+                st.markdown("### 📄 Detailed Critical Sites Table")
+                st.dataframe(critical_df, use_container_width=True)
 
             # Download
             st.download_button(
