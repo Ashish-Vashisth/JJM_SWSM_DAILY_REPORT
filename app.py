@@ -1177,7 +1177,24 @@ if uploaded is not None:
                 c5.metric("Abnormal", len(abnormal_df))
 
                 st.markdown("### ✅ Site Status")
-                make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
+                col_status_1, col_status_2 = st.columns(2)
+
+                with col_status_1:
+                    make_donut_chart(
+                        status_summary,
+                        "Status",
+                        "Count",
+                        "Status Distribution"
+                    )
+
+                with col_status_2:
+                    make_bar_chart(
+                        status_summary,
+                        "Status",
+                        "Count",
+                        "Status Distribution — Bar",
+                        color="#66C2A5"
+                    )
 
                 st.markdown("### ✅ Supply Severity")
                 col_sup_1, col_sup_2 = st.columns(2)
@@ -1200,7 +1217,25 @@ if uploaded is not None:
                     )
 
                 st.markdown("### ✅ Abnormal Parameters")
-                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
+                col_abn_1, col_abn_2 = st.columns(2)
+
+                with col_abn_1:
+                    make_donut_chart(
+                        abnormal_param_summary,
+                        "Parameter",
+                        "Count",
+                        "Abnormal Parameter Count"
+                    )
+
+                with col_abn_2:
+                    make_bar_chart(
+                        abnormal_param_summary,
+                        "Parameter",
+                        "Count",
+                        "Abnormal Parameter Count — Bar",
+                        color="#FFD166"
+                    )
+
 
 
             # -------------------------------------------------------
