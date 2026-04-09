@@ -896,11 +896,51 @@ def build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal
     return status_summary
 
 
-def build_supply_severity_summary(less_df, threshold):
-    if less_df.empty or "Percentage" not in less_df.columns:
-        return pd.DataFrame(columns=["Severity", "Count"])
+def build_supply_severity_summary(df: pd.DataFrame, threshold: float):
+    """
+    Build supply severity summary using ALL valid schemes from source data,
+    so that 75%-100% sites are also included in the dashboard.
+    """
+    df = flatten_columns(df)
+    norm = normalize_columns(df)
 
-    df_temp = less_df.copy()
+    scheme_id_col = find_col_contains(norm, "schemeid")
+    scheme_name_col = find_col_contains(norm, "schemename")
+    daily_demand_col = find_col_contains(norm, "waterdemand", "meter3", "daily")
+
+    yest_prod_col = None
+    for c, cn in norm.items():
+        if ("oht" in cn) and ("watersupply" in cn) and ("meter3" in cn) and ("yesterday" in cn):
+            yest_prod_col = c
+            break
+    if yest_prod_col is None:
+        raise KeyError("Could not find 'OHT Water Supply (Meter3) Yesterday' column.")
+
+    work_df = df[[scheme_id_col, scheme_name_col, daily_demand_col, yest_prod_col]].copy()
+    work_df.columns = [
+        "Scheme Id",
+        "Scheme Name",
+        "Daily Water Demand (m^3)",
+        "Yesterday Water Production (m^3)",
+    ]
+
+    work_df["Daily Water Demand (m^3)"] = pd.to_numeric(work_df["Daily Water Demand (m^3)"], errors="coerce")
+    work_df["Yesterday Water Production (m^3)"] = pd.to_numeric(work_df["Yesterday Water Production (m^3)"], errors="coerce")
+
+    valid_scheme = (
+        work_df["Scheme Id"].notna()
+        & work_df["Scheme Name"].notna()
+        & (work_df["Scheme Id"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Name"].astype(str).str.strip().str.lower() != "none")
+        & (work_df["Scheme Id"].astype(str).str.strip() != "")
+        & (work_df["Scheme Name"].astype(str).str.strip() != "")
+    )
+
+    work_df = work_df.loc[valid_scheme].copy()
+
+    work_df["Percentage"] = (
+        work_df["Yesterday Water Production (m^3)"] / work_df["Daily Water Demand (m^3)"]
+    ) * 100
 
     def bucket(p):
         if pd.isna(p):
@@ -911,21 +951,23 @@ def build_supply_severity_summary(less_df, threshold):
             return "25–50%"
         elif p < threshold:
             return f"50–{threshold:g}%"
+        elif p <= 100:
+            return f"{threshold:g}–100%"
         else:
-            return f">={threshold:g}%"
+            return ">100%"
 
-    df_temp["Severity"] = df_temp["Percentage"].apply(bucket)
+    work_df["Severity"] = work_df["Percentage"].apply(bucket)
 
     summary = (
-        df_temp["Severity"]
+        work_df["Severity"]
         .value_counts()
         .rename_axis("Severity")
         .reset_index(name="Count")
     )
 
-    order = ["<25%", "25–50%", f"50–{threshold:g}%", f">={threshold:g}%", "Unknown"]
+    order = ["<25%", "25–50%", f"50–{threshold:g}%", f"{threshold:g}–100%", ">100%", "Unknown"]
     summary["order"] = summary["Severity"].apply(lambda x: order.index(x) if x in order else 999)
-    summary = summary.sort_values("order").drop(columns="order")
+    summary = summary.sort_values("order").drop(columns="order").reset_index(drop=True)
 
     return summary
 
@@ -1109,7 +1151,7 @@ if uploaded is not None:
 
             # Build summaries
             status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
-            severity_summary = build_supply_severity_summary(less_df, threshold)
+            severity_summary = build_supply_severity_summary(df, threshold)
             abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
 
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -1138,7 +1180,24 @@ if uploaded is not None:
                 make_donut_chart(status_summary, "Status", "Count", "Status Distribution")
 
                 st.markdown("### ✅ Supply Severity")
-                make_donut_chart(severity_summary, "Severity", "Count", "Supply Severity Levels")
+                col_sup_1, col_sup_2 = st.columns(2)
+
+                with col_sup_1:
+                    make_donut_chart(
+                        severity_summary,
+                        "Severity",
+                        "Count",
+                        "Supply Severity Levels"
+                    )
+
+                with col_sup_2:
+                    make_bar_chart(
+                        severity_summary,
+                        "Severity",
+                        "Count",
+                        "Supply Severity Levels — Bar",
+                        color="#FF8C5A"
+                    )
 
                 st.markdown("### ✅ Abnormal Parameters")
                 make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Count")
