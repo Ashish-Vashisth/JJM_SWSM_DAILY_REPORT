@@ -1068,20 +1068,48 @@ def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_critical_summary(critical_df: pd.DataFrame) -> pd.DataFrame:
+def build_critical_summary(lpcd_df: pd.DataFrame, critical_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Creates summary for dashboard charts: HIGH/MEDIUM/LOW counts.
+    Creates severity summary for dashboard charts:
+    HIGH, MEDIUM, LOW from critical_df
+    + Normal from sites having zero abnormal KPIs.
     """
-    if critical_df.empty:
+    if lpcd_df.empty:
         return pd.DataFrame(columns=["Severity", "Count"])
 
-    return (
-        critical_df["Severity Score"]
-        .value_counts()
-        .rename_axis("Severity")
-        .reset_index(name="Count")
-        .sort_values("Severity", key=lambda s: s.map({"HIGH": 1, "MEDIUM": 2, "LOW": 3}))
+    base_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+    base_df["key"] = (
+        base_df["Scheme Id"].astype(str).str.strip() + " | " +
+        base_df["Scheme Name"].astype(str).str.strip()
     )
+    total_sites = base_df["key"].nunique()
+
+    if critical_df.empty:
+        summary = pd.DataFrame({
+            "Severity": ["HIGH", "MEDIUM", "LOW", "Normal"],
+            "Count": [0, 0, 0, total_sites]
+        })
+        return summary[summary["Count"] > 0].reset_index(drop=True)
+
+    critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+    critical_keys_df["key"] = (
+        critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
+        critical_keys_df["Scheme Name"].astype(str).str.strip()
+    )
+    critical_site_count = critical_keys_df["key"].nunique()
+
+    high_count = (critical_df["Severity Score"] == "HIGH").sum()
+    medium_count = (critical_df["Severity Score"] == "MEDIUM").sum()
+    low_count = (critical_df["Severity Score"] == "LOW").sum()
+    normal_count = max(total_sites - critical_site_count, 0)
+
+    summary = pd.DataFrame({
+        "Severity": ["HIGH", "MEDIUM", "LOW", "Normal"],
+        "Count": [high_count, medium_count, low_count, normal_count]
+    })
+
+    summary = summary[summary["Count"] > 0].reset_index(drop=True)
+    return summary
 
 # ---------------------------
 # Streamlit UI
@@ -1317,25 +1345,41 @@ if uploaded is not None:
             # TAB 6 — CRITICAL SITES (REVISED)
             # -------------------------------------------------------
             with tab6:
-                st.subheader("🚨 Critical Sites")
+                st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
 
-                # Build new critical DF
+                # Build critical data
                 critical_df = build_critical_sites(abnormal_df)
-                critical_summary = build_critical_summary(critical_df)
+                critical_summary = build_critical_summary(lpcd_df, critical_df)
 
-                # Metrics row
-                total_crit = len(critical_df)
+                total_critical = len(critical_df)
                 high_cnt = (critical_df["Severity Score"] == "HIGH").sum()
                 med_cnt = (critical_df["Severity Score"] == "MEDIUM").sum()
                 low_cnt = (critical_df["Severity Score"] == "LOW").sum()
 
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Total Critical Sites", total_crit)
-                c2.metric("High Severity", high_cnt)
-                c3.metric("Medium Severity", med_cnt)
-                c4.metric("Low Severity", low_cnt)
+                base_sites_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+                base_sites_df["key"] = (
+                    base_sites_df["Scheme Id"].astype(str).str.strip() + " | " +
+                    base_sites_df["Scheme Name"].astype(str).str.strip()
+                )
+                total_sites = base_sites_df["key"].nunique()
 
-                # Charts side-by-side
+                if critical_df.empty:
+                    normal_cnt = total_sites
+                else:
+                    critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+                    critical_keys_df["key"] = (
+                        critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
+                        critical_keys_df["Scheme Name"].astype(str).str.strip()
+                    )
+                    normal_cnt = max(total_sites - critical_keys_df["key"].nunique(), 0)
+
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("Total Critical Sites", total_critical)
+                c2.metric("HIGH Severity", high_cnt)
+                c3.metric("MEDIUM Severity", med_cnt)
+                c4.metric("LOW Severity", low_cnt)
+                c5.metric("Normal", normal_cnt)
+
                 st.markdown("### 📊 Severity Distribution")
                 colA, colB = st.columns(2)
 
@@ -1356,9 +1400,11 @@ if uploaded is not None:
                         color="#FF4B4B"
                     )
 
-                # Table
-                st.markdown("### 📄 Detailed Table : Critical Sites")
-                st.dataframe(critical_df, use_container_width=True)
+                st.markdown("### 📄 Detailed Critical Sites Table")
+                if critical_df.empty:
+                    st.info("No critical issues found today ✅")
+                else:
+                    st.dataframe(critical_df, use_container_width=True)
 
             # Download
             st.download_button(
