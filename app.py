@@ -1345,7 +1345,7 @@ if uploaded is not None:
             # TAB 6 — CRITICAL SITES (REVISED)
             # -------------------------------------------------------
             with tab6:
-                st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
+                st.subheader("🚨 Critical Sites")
 
                 # Build critical data
                 critical_df = build_critical_sites(abnormal_df)
