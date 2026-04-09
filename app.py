@@ -1351,20 +1351,10 @@ if uploaded is not None:
                 critical_df = build_critical_sites(abnormal_df)
                 critical_summary = build_critical_summary(lpcd_df, critical_df)
 
-                # Keep fixed order
-                sev_order = ["HIGH", "MEDIUM", "LOW", "Normal"]
-                if not critical_summary.empty:
-                    critical_summary["Severity"] = pd.Categorical(
-                        critical_summary["Severity"],
-                        categories=sev_order,
-                        ordered=True
-                    )
-                    critical_summary = critical_summary.sort_values("Severity").reset_index(drop=True)
-
                 total_critical = len(critical_df)
-                high_cnt = int((critical_df["Severity Score"] == "HIGH").sum())
-                med_cnt = int((critical_df["Severity Score"] == "MEDIUM").sum())
-                low_cnt = int((critical_df["Severity Score"] == "LOW").sum())
+                high_cnt = (critical_df["Severity Score"] == "HIGH").sum()
+                med_cnt = (critical_df["Severity Score"] == "MEDIUM").sum()
+                low_cnt = (critical_df["Severity Score"] == "LOW").sum()
 
                 base_sites_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
                 base_sites_df["key"] = (
@@ -1402,52 +1392,19 @@ if uploaded is not None:
                     )
 
                 with colB:
-                    if critical_summary.empty:
-                        st.info("No data available for Critical Sites — Bar")
-                    else:
-                        fig_critical_bar = px.bar(
-                            critical_summary,
-                            x="Severity",
-                            y="Count",
-                            color="Severity",
-                            text="Count",
-                            title="Critical Sites — Bar",
-                            category_orders={"Severity": sev_order},
-                            color_discrete_map={
-                                "HIGH": "#FF4B4B",
-                                "MEDIUM": "#F4A261",
-                                "LOW": "#8FAADC",
-                                "Normal": "#66C2A5"
-                            }
-                        )
-
-                        fig_critical_bar.update_traces(textposition="outside")
-
-                        fig_critical_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10),
-                            showlegend=False
-                        )
-
-                        fig_critical_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35,
-                            categoryorder="array",
-                            categoryarray=sev_order
-                        )
-                        fig_critical_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
-
-                        st.plotly_chart(fig_critical_bar, use_container_width=True)
+                    make_bar_chart(
+                        critical_summary,
+                        "Severity",
+                        "Count",
+                        "Critical Sites — Bar",
+                        color="#FF4B4B"
+                    )
 
                 st.markdown("### 📄 Detailed Critical Sites Table")
                 if critical_df.empty:
                     st.info("No critical issues found today ✅")
                 else:
                     st.dataframe(critical_df, use_container_width=True)
-
 
             # Download
             st.download_button(
