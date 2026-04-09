@@ -1291,7 +1291,25 @@ if uploaded is not None:
 
                 st.metric("Total Abnormal Sites", len(abnormal_df))
 
-                make_donut_chart(abnormal_param_summary, "Parameter", "Count", "Abnormal Parameter Breakdown")
+                col_ab_tab_1, col_ab_tab_2 = st.columns(2)
+
+                with col_ab_tab_1:
+                    make_donut_chart(
+                        abnormal_param_summary,
+                        "Parameter",
+                        "Count",
+                        "Abnormal Parameter Breakdown"
+                    )
+
+                with col_ab_tab_2:
+                    make_bar_chart(
+                        abnormal_param_summary,
+                        "Parameter",
+                        "Count",
+                        "Abnormal Parameter Breakdown — Bar",
+                        color="#FFD166"
+                    )
+
                 st.dataframe(abnormal_df, use_container_width=True)
 
 
