@@ -1277,7 +1277,16 @@ if st.button("Generate Report", type="primary"):
         # -------------------------------------------------------
         # OVERVIEW DASHBOARD
         # -------------------------------------------------------
-        st.markdown("## 📊 Overview Dashboard")
+        # -------------------------------------------------------
+        # OVERVIEW DASHBOARD
+        # -------------------------------------------------------
+        if uploaded is not None:
+            st.markdown("## 📊 Overview Dashboard")
+        elif st.session_state.get("prefetched_source_name"):
+            st.markdown(f"## 📊 Overview Dashboard : {st.session_state['prefetched_source_name']}")
+        else:
+            st.markdown("## 📊 Overview Dashboard")
+
 
         # Build summaries
         status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
