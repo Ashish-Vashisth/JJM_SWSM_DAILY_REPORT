@@ -1,4 +1,5 @@
 
+import requests
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -15,6 +16,12 @@ PLOTLY_DARK_THEME = {
     "legend": {"font": {"color": "white", "size": 14}},
     "title": {"font": {"color": "white", "size": 18}},
 }
+DISTRICT_URLS = {
+    "AYODHYA": "https://jjm.up.gov.in/SKADA/Web_SKADA_DIstrict_Agency_Dashboard?DistrictId=503&AgencyId=127&Header=Automation%20System%20Ayodhya%20(UNIVERSAL%20MEP)",
+    "SULTANPUR": "https://jjm.up.gov.in/SKADA/Web_SKADA_DIstrict_Agency_Dashboard?DistrictId=505&AgencyId=127&Header=Automation%20System%20Sultanpur%20(UNIVERSAL%20MEP)",
+    "DEORIA": "https://jjm.up.gov.in/SKADA/Web_SKADA_DIstrict_Agency_Dashboard?DistrictId=516&AgencyId=127&Header=Automation%20System%20Deoria%20(UNIVERSAL%20MEP)",
+}
+
 
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -31,8 +38,8 @@ BACKGROUND_B64 = """/9j/4AAQSkZJRgABAQEAyADIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQE
 # ---------------------------
 
 def apply_branding(
-    bg_overlay_opacity: float = 0.28,   # lower = MORE background visibility
-    card_opacity: float = 0.42          # lower = card less dark (still readable)
+    bg_overlay_opacity: float = 0.28,
+    card_opacity: float = 0.42
 ):
     st.markdown(
         f"""
@@ -119,7 +126,7 @@ def apply_branding(
         }}
 
         /* =========================
-           UPLOADED FILE STRIP (LIGHTER + CLEARER)
+           UPLOADED FILE STRIP
            ========================= */
         [data-testid="stFileUploaderFile"],
         [data-testid="stFileUploader"] li {{
@@ -141,7 +148,7 @@ def apply_branding(
         }}
 
         /* =========================
-           STRIP CLOSE (X) BUTTON — CLEAN WHITE ROUND BUTTON
+           STRIP CLOSE (X) BUTTON
            ========================= */
         [data-testid="stFileUploaderFile"] button {{
             background: #ffffff !important;
@@ -155,7 +162,6 @@ def apply_branding(
         [data-testid="stFileUploaderFile"] button:hover {{
             background: #f1f5f9 !important;
         }}
-        /* Make the X icon dark */
         [data-testid="stFileUploaderFile"] button svg path,
         [data-testid="stFileUploaderFile"] button svg line,
         [data-testid="stFileUploaderFile"] button svg polyline {{
@@ -175,9 +181,9 @@ def apply_branding(
         }}
 
         /* =========================
-           GENERATE REPORT BUTTON (RED)
+           PRIMARY BUTTON (GENERATE REPORT) - RED
            ========================= */
-        .stButton > button {{
+        .stButton > button[kind="primary"] {{
             background: #ff4b4b !important;
             color: #ffffff !important;
             font-weight: 900 !important;
@@ -187,12 +193,30 @@ def apply_branding(
             border: none !important;
             box-shadow: 0 10px 22px rgba(0,0,0,0.30) !important;
         }}
-        .stButton > button:hover {{
+        .stButton > button[kind="primary"]:hover {{
             background: #e63d3d !important;
         }}
 
         /* =========================
-           DOWNLOAD BUTTON — WHITE (TEXT + ICON ALWAYS VISIBLE)
+           SECONDARY BUTTONS (DISTRICT BUTTONS) - BLUE
+           ========================= */
+        .stButton > button[kind="secondary"] {{
+            background: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 900 !important;
+            font-size: 1.06rem !important;
+            border-radius: 14px !important;
+            padding: 0.80rem 1.45rem !important;
+            border: none !important;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.30) !important;
+        }}
+        .stButton > button[kind="secondary"]:hover {{
+            background: #1d4ed8 !important;
+            color: #ffffff !important;
+        }}
+
+        /* =========================
+           DOWNLOAD BUTTON
            ========================= */
         .stDownloadButton > button {{
             background: #ffffff !important;
@@ -211,12 +235,9 @@ def apply_branding(
         .stDownloadButton > button svg polyline {{
             stroke: #111111 !important;
         }}
-
         .stDownloadButton > button:hover {{
             background: #f8fafc !important;
         }}
-
-        /* Disabled state (still readable) */
         .stDownloadButton > button:disabled {{
             opacity: 1 !important;
             background: rgba(255,255,255,0.85) !important;
@@ -250,15 +271,17 @@ def apply_branding(
             border: 1px solid rgba(255,255,255,0.18) !important;
             color: #f8fafc !important;
         }}
-        /* FIX: Restore Streamlit dataframe toolbar visibility */
-[data-testid="stDataFrameToolbar"] {{
-    visibility: visible !important;
-    opacity: 1 !important;
-}}
+
+        /* Restore dataframe toolbar */
+        [data-testid="stDataFrameToolbar"] {{
+            visibility: visible !important;
+            opacity: 1 !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True
     )
+
 
 
 # ---------------------------
@@ -283,6 +306,33 @@ def read_source(uploaded_file) -> pd.DataFrame:
         raise ValueError("Could not parse any tables from the uploaded file.")
     df = max(tables, key=lambda t: t.shape[0])
     return df
+def read_source_from_url(url: str) -> pd.DataFrame:
+    """
+    Read district dashboard table directly from JJM URL.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    resp = requests.get(url, headers=headers, timeout=60)
+    resp.raise_for_status()
+
+    html = resp.text
+    tables = pd.read_html(StringIO(html))
+
+    if not tables:
+        raise ValueError("Could not parse any tables from the district URL.")
+
+    # Prefer the large scheme table
+    candidates = [t for t in tables if t.shape[1] >= 20]
+    if candidates:
+        df = max(candidates, key=lambda t: t.shape[0] * t.shape[1])
+    else:
+        df = max(tables, key=lambda t: t.shape[0] * t.shape[1])
+
+    df = flatten_columns(df)
+    return df
+    
 
 
 def flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -1135,262 +1185,306 @@ threshold = st.number_input(
 
 uploaded = st.file_uploader("Upload JJMUP file", type=["xls", "xlsx", "xlsm"])
 
+if "prefetched_df" not in st.session_state:
+    st.session_state["prefetched_df"] = None
+
+if "prefetched_source_name" not in st.session_state:
+    st.session_state["prefetched_source_name"] = None
+
+st.markdown("### Quick District Load")
+col_d1, col_d2, col_d3 = st.columns(3)
+
+if col_d1.button("AYODHYA", type="secondary"):
+    try:
+        st.session_state["prefetched_df"] = read_source_from_url(DISTRICT_URLS["AYODHYA"])
+        st.session_state["prefetched_source_name"] = "AYODHYA"
+        st.success("AYODHYA data loaded successfully. Now click Generate Report.")
+    except Exception as e:
+        st.error("Could not load AYODHYA data from JJM portal.")
+        st.exception(e)
+
+if col_d2.button("SULTANPUR", type="secondary"):
+    try:
+        st.session_state["prefetched_df"] = read_source_from_url(DISTRICT_URLS["SULTANPUR"])
+        st.session_state["prefetched_source_name"] = "SULTANPUR"
+        st.success("SULTANPUR data loaded successfully. Now click Generate Report.")
+    except Exception as e:
+        st.error("Could not load SULTANPUR data from JJM portal.")
+        st.exception(e)
+
+if col_d3.button("DEORIA", type="secondary"):
+    try:
+        st.session_state["prefetched_df"] = read_source_from_url(DISTRICT_URLS["DEORIA"])
+        st.session_state["prefetched_source_name"] = "DEORIA"
+        st.success("DEORIA data loaded successfully. Now click Generate Report.")
+    except Exception as e:
+        st.error("Could not load DEORIA data from JJM portal.")
+        st.exception(e)
+
 if uploaded is not None:
     st.info(f"Uploaded: {uploaded.name}")
+elif st.session_state["prefetched_df"] is not None:
+    st.info(f"Selected District: {st.session_state['prefetched_source_name']}")
+else:
+    st.warning("Please upload the JJMUP export file or click a district button to load data.")
 
-    if st.button("Generate Report", type="primary"):
-        try:
-            # Read source
+if st.button("Generate Report", type="primary"):
+    try:
+        # Read source
+        if uploaded is not None:
             df = read_source(uploaded)
+        elif st.session_state["prefetched_df"] is not None:
+            df = st.session_state["prefetched_df"].copy()
+        else:
+            st.warning("Please upload the JJMUP export file or click a district button first.")
+            st.stop()
 
-            # Build sheets
-            less_df, zero_df, today_zero_df = build_report(df, threshold=threshold)
-            lpcd_df = build_lpcd_status(df)
-            abnormal_df = build_abnormal_sites(df)
+        # Build sheets
+        less_df, zero_df, today_zero_df = build_report(df, threshold=threshold)
+        lpcd_df = build_lpcd_status(df)
+        abnormal_df = build_abnormal_sites(df)
 
-            # Create output excel
-            out_name, out_bytes = create_output_excel(
-                less_df, zero_df, today_zero_df, lpcd_df, abnormal_df
-            )
+        # Create output excel
+        out_name, out_bytes = create_output_excel(
+            less_df, zero_df, today_zero_df, lpcd_df, abnormal_df
+        )
 
-            # Success + metrics
-            st.success(f"Created: {out_name}")
+        # Success + metrics
+        st.success(f"Created: {out_name}")
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric(f"SITES < {threshold:g}%", len(less_df))
-            c2.metric("ZERO/INACTIVE SITES", len(zero_df))
-            c3.metric("TODAY ZERO SITES", len(today_zero_df))
-            c4.metric("ABNORMAL SITES", len(abnormal_df))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric(f"SITES < {threshold:g}%", len(less_df))
+        c2.metric("ZERO/INACTIVE SITES", len(zero_df))
+        c3.metric("TODAY ZERO SITES", len(today_zero_df))
+        c4.metric("ABNORMAL SITES", len(abnormal_df))
 
-            # Previews
-            with st.expander("Preview: LPCD STATUS"):
-                st.dataframe(lpcd_df, use_container_width=True)
+        # Previews
+        with st.expander("Preview: LPCD STATUS"):
+            st.dataframe(lpcd_df, use_container_width=True)
 
-            with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
-                st.dataframe(less_df, use_container_width=True)
+        with st.expander("Preview: SUPPLIED WATER LESS THAN THRESHOLD"):
+            st.dataframe(less_df, use_container_width=True)
 
-            with st.expander("Preview: ZERO(INACTIVE SITES)"):
-                st.dataframe(zero_df, use_container_width=True)
+        with st.expander("Preview: ZERO(INACTIVE SITES)"):
+            st.dataframe(zero_df, use_container_width=True)
 
-            with st.expander("Preview: TODAY ZERO SITES"):
-                st.dataframe(today_zero_df, use_container_width=True)
+        with st.expander("Preview: TODAY ZERO SITES"):
+            st.dataframe(today_zero_df, use_container_width=True)
 
-            with st.expander("Preview: ABNORMAL SITES"):
-                st.dataframe(abnormal_df, use_container_width=True)
-            # -------------------------------------------------------
-            # ✅ NEW ADVANCED DASHBOARD (PIE CHARTS + CRITICAL LISTS)
-            # -------------------------------------------------------
-            st.markdown("## 📊 Overview Dashboard")
+        with st.expander("Preview: ABNORMAL SITES"):
+            st.dataframe(abnormal_df, use_container_width=True)
 
-            # Build summaries
-            status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
-            severity_summary = build_supply_severity_summary(df, threshold)
-            abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
+        # -------------------------------------------------------
+        # OVERVIEW DASHBOARD
+        # -------------------------------------------------------
+        st.markdown("## 📊 Overview Dashboard")
 
-            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        # Build summaries
+        status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
+        severity_summary = build_supply_severity_summary(df, threshold)
+        abnormal_param_summary = build_abnormal_parameter_summary(abnormal_df)
+
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "Summary",
             "LPCD STATUS",
             "SUPPLIED < Threshold",
             "ZERO / INACTIVE",
             "ABNORMAL SITES",
             "CRITICAL SITES"
-            ])
+        ])
 
-            # -------------------------------------------------------
-            # TAB 1 — SUMMARY
-            # -------------------------------------------------------
-            with tab1:
-                st.subheader("Overall Summary")
+        # -------------------------------------------------------
+        # TAB 1 — SUMMARY
+        # -------------------------------------------------------
+        with tab1:
+            st.subheader("Overall Summary")
 
-                c1, c2, c3, c4, c5 = st.columns(5)
-                c1.metric("Total Schemes", len(lpcd_df))
-                c2.metric(f"< {threshold:g}% Supply", len(less_df))
-                c3.metric("Zero / Inactive", len(zero_df))
-                c4.metric("Today Zero", len(today_zero_df))
-                c5.metric("Abnormal", len(abnormal_df))
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total Schemes", len(lpcd_df))
+            c2.metric(f"< {threshold:g}% Supply", len(less_df))
+            c3.metric("Zero / Inactive", len(zero_df))
+            c4.metric("Today Zero", len(today_zero_df))
+            c5.metric("Abnormal", len(abnormal_df))
 
-                st.markdown("### ✅ Site Status")
-                col_status_1, col_status_2 = st.columns(2)
+            st.markdown("### ✅ Site Status")
+            col_status_1, col_status_2 = st.columns(2)
 
-                status_color_map = {
-                    "Abnormal Reading": "#66C2A5",
-                    "Today Zero": "#FC8D62",
-                    f"Supply < {threshold:g}%": "#8DA0CB",
-                    "Zero / Inactive": "#E78AC3",
-                    "Healthy / Normal": "#A6D854"
-                }
+            status_color_map = {
+                "Abnormal Reading": "#66C2A5",
+                "Today Zero": "#FC8D62",
+                f"Supply < {threshold:g}%": "#8DA0CB",
+                "Zero / Inactive": "#E78AC3",
+                "Healthy / Normal": "#A6D854"
+            }
 
-                with col_status_1:
-                    make_donut_chart(
+            with col_status_1:
+                make_donut_chart(
+                    status_summary,
+                    "Status",
+                    "Count",
+                    "Status Distribution",
+                    color_map=status_color_map
+                )
+
+            with col_status_2:
+                if status_summary.empty:
+                    st.info("No data available for Status Distribution — Bar")
+                else:
+                    status_bar_colors = [
+                        status_color_map.get(v, "#4F81BD")
+                        for v in status_summary["Status"]
+                    ]
+
+                    fig_status_bar = px.bar(
                         status_summary,
-                        "Status",
-                        "Count",
-                        "Status Distribution",
-                        color_map=status_color_map
+                        x="Status",
+                        y="Count",
+                        title="Status Distribution — Bar",
+                        text="Count"
                     )
 
-                with col_status_2:
-                    if status_summary.empty:
-                        st.info("No data available for Status Distribution — Bar")
-                    else:
-                        status_bar_colors = [
-                            status_color_map.get(v, "#4F81BD")
-                            for v in status_summary["Status"]
-                        ]
+                    fig_status_bar.update_traces(
+                        marker_color=status_bar_colors,
+                        textposition="outside"
+                    )
 
-                        fig_status_bar = px.bar(
-                            status_summary,
-                            x="Status",
-                            y="Count",
-                            title="Status Distribution — Bar",
-                            text="Count"
-                        )
+                    fig_status_bar.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=420,
+                        margin=dict(l=10, r=10, t=50, b=10)
+                    )
 
-                        fig_status_bar.update_traces(
-                            marker_color=status_bar_colors,
-                            textposition="outside"
-                        )
+                    fig_status_bar.update_xaxes(
+                        tickfont=dict(color="white", size=11),
+                        tickangle=-35
+                    )
+                    fig_status_bar.update_yaxes(
+                        tickfont=dict(color="white", size=11)
+                    )
 
-                        fig_status_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10)
-                        )
+                    st.plotly_chart(fig_status_bar, use_container_width=True)
 
-                        fig_status_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35
-                        )
-                        fig_status_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
+            st.markdown("### ✅ Supply Severity")
+            col_sup_1, col_sup_2 = st.columns(2)
 
-                        st.plotly_chart(fig_status_bar, use_container_width=True)
+            supply_color_map = {
+                "<25%": "#FF4B4B",
+                "25–50%": "#F4A261",
+                f"50–{threshold:g}%": "#FFD166",
+                f"{threshold:g}–100%": "#66C2A5",
+                ">100%": "#8DA0CB",
+                "Unknown": "#BDBDBD"
+            }
 
-                st.markdown("### ✅ Supply Severity")
-                col_sup_1, col_sup_2 = st.columns(2)
+            with col_sup_1:
+                make_donut_chart(
+                    severity_summary,
+                    "Severity",
+                    "Count",
+                    "Supply Severity Levels",
+                    color_map=supply_color_map
+                )
 
-                supply_color_map = {
-                    "<25%": "#FF4B4B",
-                    "25–50%": "#F4A261",
-                    f"50–{threshold:g}%": "#FFD166",
-                    f"{threshold:g}–100%": "#66C2A5",
-                    ">100%": "#8DA0CB",
-                    "Unknown": "#BDBDBD"
-                }
+            with col_sup_2:
+                if severity_summary.empty:
+                    st.info("No data available for Supply Severity Levels — Bar")
+                else:
+                    supply_bar_colors = [
+                        supply_color_map.get(v, "#4F81BD")
+                        for v in severity_summary["Severity"]
+                    ]
 
-                with col_sup_1:
-                    make_donut_chart(
+                    fig_supply_bar = px.bar(
                         severity_summary,
-                        "Severity",
-                        "Count",
-                        "Supply Severity Levels",
-                        color_map=supply_color_map
+                        x="Severity",
+                        y="Count",
+                        title="Supply Severity Levels — Bar",
+                        text="Count"
                     )
 
-                with col_sup_2:
-                    if severity_summary.empty:
-                        st.info("No data available for Supply Severity Levels — Bar")
-                    else:
-                        supply_bar_colors = [
-                            supply_color_map.get(v, "#4F81BD")
-                            for v in severity_summary["Severity"]
-                        ]
+                    fig_supply_bar.update_traces(
+                        marker_color=supply_bar_colors,
+                        textposition="outside"
+                    )
 
-                        fig_supply_bar = px.bar(
-                            severity_summary,
-                            x="Severity",
-                            y="Count",
-                            title="Supply Severity Levels — Bar",
-                            text="Count"
-                        )
+                    fig_supply_bar.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=420,
+                        margin=dict(l=10, r=10, t=50, b=10)
+                    )
 
-                        fig_supply_bar.update_traces(
-                            marker_color=supply_bar_colors,
-                            textposition="outside"
-                        )
+                    fig_supply_bar.update_xaxes(
+                        tickfont=dict(color="white", size=11),
+                        tickangle=-35
+                    )
+                    fig_supply_bar.update_yaxes(
+                        tickfont=dict(color="white", size=11)
+                    )
 
-                        fig_supply_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10)
-                        )
+                    st.plotly_chart(fig_supply_bar, use_container_width=True)
 
-                        fig_supply_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35
-                        )
-                        fig_supply_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
+            st.markdown("### ✅ Abnormal Parameters")
+            col_abn_1, col_abn_2 = st.columns(2)
 
-                        st.plotly_chart(fig_supply_bar, use_container_width=True)
+            abnormal_param_color_map = {
+                "Hydrostatic": "#66C2A5",
+                "Chlorine": "#FC8D62",
+                "Radar Level": "#8DA0CB",
+                "Pressure": "#E78AC3",
+                "Turbidity": "#A6D854",
+                "Voltage": "#FFD166",
+                "Weekly LPCD": "#E5C494",
+                "Static Totalizer": "#B3B3E6"
+            }
 
-                st.markdown("### ✅ Abnormal Parameters")
-                col_abn_1, col_abn_2 = st.columns(2)
+            with col_abn_1:
+                make_donut_chart(
+                    abnormal_param_summary,
+                    "Parameter",
+                    "Count",
+                    "Abnormal Parameter Count",
+                    color_map=abnormal_param_color_map
+                )
 
-                abnormal_param_color_map = {
-                    "Hydrostatic": "#66C2A5",
-                    "Chlorine": "#FC8D62",
-                    "Radar Level": "#8DA0CB",
-                    "Pressure": "#E78AC3",
-                    "Turbidity": "#A6D854",
-                    "Voltage": "#FFD166",
-                    "Weekly LPCD": "#00BFFF",
-                    "Static Totalizer": "#B3B3E6"
-                }
+            with col_abn_2:
+                if abnormal_param_summary.empty:
+                    st.info("No data available for Abnormal Parameter Count — Bar")
+                else:
+                    abnormal_bar_colors = [
+                        abnormal_param_color_map.get(v, "#4F81BD")
+                        for v in abnormal_param_summary["Parameter"]
+                    ]
 
-                with col_abn_1:
-                    make_donut_chart(
+                    fig_abnormal_bar = px.bar(
                         abnormal_param_summary,
-                        "Parameter",
-                        "Count",
-                        "Abnormal Parameter Count",
-                        color_map=abnormal_param_color_map
+                        x="Parameter",
+                        y="Count",
+                        title="Abnormal Parameter Count — Bar",
+                        text="Count"
                     )
 
-                with col_abn_2:
-                    if abnormal_param_summary.empty:
-                        st.info("No data available for Abnormal Parameter Count — Bar")
-                    else:
-                        abnormal_bar_colors = [
-                            abnormal_param_color_map.get(v, "#4F81BD")
-                            for v in abnormal_param_summary["Parameter"]
-                        ]
+                    fig_abnormal_bar.update_traces(
+                        marker_color=abnormal_bar_colors,
+                        textposition="outside"
+                    )
 
-                        fig_abnormal_bar = px.bar(
-                            abnormal_param_summary,
-                            x="Parameter",
-                            y="Count",
-                            title="Abnormal Parameter Count — Bar",
-                            text="Count"
-                        )
+                    fig_abnormal_bar.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=420,
+                        margin=dict(l=10, r=10, t=50, b=10)
+                    )
 
-                        fig_abnormal_bar.update_traces(
-                            marker_color=abnormal_bar_colors,
-                            textposition="outside"
-                        )
+                    fig_abnormal_bar.update_xaxes(
+                        tickfont=dict(color="white", size=11),
+                        tickangle=-35
+                    )
+                    fig_abnormal_bar.update_yaxes(
+                        tickfont=dict(color="white", size=11)
+                    )
 
-                        fig_abnormal_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10)
-                        )
+                    st.plotly_chart(fig_abnormal_bar, use_container_width=True)
 
-                        fig_abnormal_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35
-                        )
-                        fig_abnormal_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
-
-                        st.plotly_chart(fig_abnormal_bar, use_container_width=True)
-
-
-
-
-            # -------------------------------------------------------
+        # -------------------------------------------------------
             # TAB 2 — LPCD STATUS
             # -------------------------------------------------------
             with tab2:
@@ -1401,244 +1495,280 @@ if uploaded is not None:
                 c2.metric("Avg Weekly LPCD", safe_mean(lpcd_df["Avg LPCD (Weekly)"]))
                 c3.metric("Avg Monthly LPCD", safe_mean(lpcd_df["Avg LPCD (Monthly)"]))
 
-            # Top 10 Lowest LPCD Weekly
+                # Top 10 Lowest LPCD Weekly
                 st.markdown("### 🔽 Lowest LPCD Weekly (Top 10)")
-                top10_lpcd = (
-                lpcd_df.sort_values("Avg LPCD (Weekly)").head(10)[["Scheme Name", "Avg LPCD (Weekly)"]]
-            )
-                make_bar_chart(top10_lpcd, "Scheme Name", "Avg LPCD (Weekly)", "Lowest LPCD (Weekly)", color="#00BFFF")
 
-
-            # -------------------------------------------------------
-            # TAB 3 — SUPPLIED < THRESHOLD
-            # -------------------------------------------------------
-            with tab3:
-                st.subheader("Sites Supplied Below Threshold")
-
-                c1, c2 = st.columns(2)
-                c1.metric("Below Threshold Sites", len(less_df))
-                c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
-
-            # Top 10 worst supply % 
-                st.markdown("### 🔽 Lowest Supply % (Top 10)")
-                worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
-                make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
-
-
-            # -------------------------------------------------------
-            # TAB 4 — ZERO / INACTIVE SITES
-            # -------------------------------------------------------
-            with tab4:
-                st.subheader("Zero / Inactive Sites")
-
-                st.metric("Total Inactive Sites", len(zero_df))
-                st.dataframe(zero_df, use_container_width=True)
-
-
-            # -------------------------------------------------------
-            # TAB 5 — ABNORMAL SITES
-            # -------------------------------------------------------
-            with tab5:
-                st.subheader("Abnormal Instrument Readings")
-
-                st.metric("Total Abnormal Sites", len(abnormal_df))
-
-                abnormal_param_color_map = {
-                    "Hydrostatic": "#66C2A5",
-                    "Chlorine": "#FC8D62",
-                    "Radar Level": "#8DA0CB",
-                    "Pressure": "#E78AC3",
-                    "Turbidity": "#A6D854",
-                    "Voltage": "#FFD166",
-                    "Weekly LPCD": "#E5C494",
-                    "Static Totalizer": "#B3B3E6"
-                }
-
-                col_ab_tab_1, col_ab_tab_2 = st.columns(2)
-
-                with col_ab_tab_1:
-                    make_donut_chart(
-                        abnormal_param_summary,
-                        "Parameter",
-                        "Count",
-                        "Abnormal Parameter Breakdown",
-                        color_map=abnormal_param_color_map
-                    )
-
-                with col_ab_tab_2:
-                    if abnormal_param_summary.empty:
-                        st.info("No data available for Abnormal Parameter Breakdown — Bar")
-                    else:
-                        abnormal_bar_colors = [
-                            abnormal_param_color_map.get(v, "#4F81BD")
-                            for v in abnormal_param_summary["Parameter"]
-                        ]
-
-                        fig_abnormal_tab_bar = px.bar(
-                            abnormal_param_summary,
-                            x="Parameter",
-                            y="Count",
-                            title="Abnormal Parameter Breakdown — Bar",
-                            text="Count"
-                        )
-
-                        fig_abnormal_tab_bar.update_traces(
-                            marker_color=abnormal_bar_colors,
-                            textposition="outside"
-                        )
-
-                        fig_abnormal_tab_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10)
-                        )
-
-                        fig_abnormal_tab_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35
-                        )
-                        fig_abnormal_tab_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
-
-                        st.plotly_chart(fig_abnormal_tab_bar, use_container_width=True)
-
-                st.dataframe(abnormal_df, use_container_width=True)
-
-
-
-            # -------------------------------------------------------
-            # TAB 6 — CRITICAL SITES (REVISED)
-            # -------------------------------------------------------
-            with tab6:
-                st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
-
-                # Build critical data
-                critical_df = build_critical_sites(abnormal_df)
-                critical_summary = build_critical_summary(lpcd_df, critical_df)
-
-                # Fixed order for charts
-                sev_order = ["HIGH", "MEDIUM", "LOW", "Normal"]
-                critical_color_map = {
-                    "HIGH": "#FF4B4B",
-                    "MEDIUM": "#F4A261",
-                    "LOW": "#8FAADC",
-                    "Normal": "#66C2A5"
-                }
-
-                if not critical_summary.empty:
-                    critical_summary["Severity"] = pd.Categorical(
-                        critical_summary["Severity"],
-                        categories=sev_order,
-                        ordered=True
-                    )
-                    critical_summary = critical_summary.sort_values("Severity").reset_index(drop=True)
-
-                total_critical = len(critical_df)
-                high_cnt = int((critical_df["Severity Score"] == "HIGH").sum())
-                med_cnt = int((critical_df["Severity Score"] == "MEDIUM").sum())
-                low_cnt = int((critical_df["Severity Score"] == "LOW").sum())
-
-                base_sites_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-                base_sites_df["key"] = (
-                    base_sites_df["Scheme Id"].astype(str).str.strip() + " | " +
-                    base_sites_df["Scheme Name"].astype(str).str.strip()
+                top10_lpcd = lpcd_df[["Scheme Name", "Avg LPCD (Weekly)"]].copy()
+                top10_lpcd["Avg LPCD (Weekly)"] = pd.to_numeric(
+                    top10_lpcd["Avg LPCD (Weekly)"], errors="coerce"
                 )
-                total_sites = base_sites_df["key"].nunique()
 
-                if critical_df.empty:
-                    normal_cnt = total_sites
+                top10_lpcd = (
+                    top10_lpcd.dropna(subset=["Avg LPCD (Weekly)"])
+                    .sort_values("Avg LPCD (Weekly)", ascending=True)
+                    .head(10)
+                )
+
+                if top10_lpcd.empty:
+                    st.info("No data available for Lowest LPCD Weekly chart")
                 else:
-                    critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-                    critical_keys_df["key"] = (
-                        critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
-                        critical_keys_df["Scheme Name"].astype(str).str.strip()
-                    )
-                    normal_cnt = max(total_sites - critical_keys_df["key"].nunique(), 0)
+                    max_val = top10_lpcd["Avg LPCD (Weekly)"].max()
+                    y_upper = max(1, float(max_val) * 1.18)
 
-                c1, c2, c3, c4, c5 = st.columns(5)
-                c1.metric("Total Critical Sites", total_critical)
-                c2.metric("HIGH Severity", high_cnt)
-                c3.metric("MEDIUM Severity", med_cnt)
-                c4.metric("LOW Severity", low_cnt)
-                c5.metric("Normal", normal_cnt)
-
-                st.markdown("### 📊 Severity Distribution")
-                colA, colB = st.columns(2)
-
-                with colA:
-                    make_donut_chart(
-                        critical_summary,
-                        "Severity",
-                        "Count",
-                        "Critical Sites — % wise",
-                        color_map=critical_color_map
+                    fig_lpcd = px.bar(
+                        top10_lpcd,
+                        x="Scheme Name",
+                        y="Avg LPCD (Weekly)",
+                        text="Avg LPCD (Weekly)",
+                        title="Lowest LPCD (Weekly)"
                     )
 
-                with colB:
-                    if critical_summary.empty:
-                        st.info("No data available for Critical Sites — Bar")
-                    else:
-                        critical_bar_colors = [
-                            critical_color_map.get(v, "#4F81BD")
-                            for v in critical_summary["Severity"]
-                        ]
+                    fig_lpcd.update_traces(
+                        marker_color="#00BFFF",
+                        texttemplate="%{text:.2f}",
+                        textposition="outside",
+                        cliponaxis=False
+                    )
 
-                        fig_critical_bar = px.bar(
-                            critical_summary,
-                            x="Severity",
-                            y="Count",
-                            title="Critical Sites — Bar",
-                            text="Count"
-                        )
+                    fig_lpcd.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=520,
+                        margin=dict(l=10, r=10, t=50, b=140)
+                    )
 
-                        fig_critical_bar.update_traces(
-                            marker_color=critical_bar_colors,
-                            textposition="outside"
-                        )
+                    fig_lpcd.update_xaxes(
+                        title="Scheme Name",
+                        tickfont=dict(color="white", size=10),
+                        tickangle=-35,
+                        automargin=True
+                    )
 
-                        fig_critical_bar.update_layout(
-                            **PLOTLY_DARK_THEME,
-                            height=420,
-                            margin=dict(l=10, r=10, t=50, b=10)
-                        )
+                    fig_lpcd.update_yaxes(
+                        title="Avg LPCD (Weekly)",
+                        tickfont=dict(color="white", size=11),
+                        range=[0, y_upper]
+                    )
 
-                        fig_critical_bar.update_xaxes(
-                            tickfont=dict(color="white", size=11),
-                            tickangle=-35,
-                            categoryorder="array",
-                            categoryarray=sev_order
-                        )
-                        fig_critical_bar.update_yaxes(
-                            tickfont=dict(color="white", size=11)
-                        )
+                    st.plotly_chart(fig_lpcd, use_container_width=True)
 
-                        st.plotly_chart(fig_critical_bar, use_container_width=True)
 
-                st.markdown("### 📄 Detailed Critical Sites Table")
-                if critical_df.empty:
-                    st.info("No critical issues found today ✅")
+        # -------------------------------------------------------
+        # TAB 3 — SUPPLIED < THRESHOLD
+        # -------------------------------------------------------
+        with tab3:
+            st.subheader("Sites Supplied Below Threshold")
+
+            c1, c2 = st.columns(2)
+            c1.metric("Below Threshold Sites", len(less_df))
+            c2.metric("Lowest % Supply", safe_min(less_df["Percentage"]))
+
+            st.markdown("### 🔽 Lowest Supply % (Top 10)")
+            worst10 = less_df.sort_values("Percentage").head(10)[["Scheme Name", "Percentage"]]
+            make_bar_chart(worst10, "Scheme Name", "Percentage", "Worst 10 Supply %", color="#FF4B4B")
+
+        # -------------------------------------------------------
+        # TAB 4 — ZERO / INACTIVE SITES
+        # -------------------------------------------------------
+        with tab4:
+            st.subheader("Zero / Inactive Sites")
+
+            st.metric("Total Inactive Sites", len(zero_df))
+            st.dataframe(zero_df, use_container_width=True)
+
+        # -------------------------------------------------------
+        # TAB 5 — ABNORMAL SITES
+        # -------------------------------------------------------
+        with tab5:
+            st.subheader("Abnormal Instrument Readings")
+
+            st.metric("Total Abnormal Sites", len(abnormal_df))
+
+            abnormal_param_color_map = {
+                "Hydrostatic": "#66C2A5",
+                "Chlorine": "#FC8D62",
+                "Radar Level": "#8DA0CB",
+                "Pressure": "#E78AC3",
+                "Turbidity": "#A6D854",
+                "Voltage": "#FFD166",
+                "Weekly LPCD": "#E5C494",
+                "Static Totalizer": "#B3B3E6"
+            }
+
+            col_ab_tab_1, col_ab_tab_2 = st.columns(2)
+
+            with col_ab_tab_1:
+                make_donut_chart(
+                    abnormal_param_summary,
+                    "Parameter",
+                    "Count",
+                    "Abnormal Parameter Breakdown",
+                    color_map=abnormal_param_color_map
+                )
+
+            with col_ab_tab_2:
+                if abnormal_param_summary.empty:
+                    st.info("No data available for Abnormal Parameter Breakdown — Bar")
                 else:
-                    st.dataframe(critical_df, use_container_width=True)
+                    abnormal_bar_colors = [
+                        abnormal_param_color_map.get(v, "#4F81BD")
+                        for v in abnormal_param_summary["Parameter"]
+                    ]
 
+                    fig_abnormal_tab_bar = px.bar(
+                        abnormal_param_summary,
+                        x="Parameter",
+                        y="Count",
+                        title="Abnormal Parameter Breakdown — Bar",
+                        text="Count"
+                    )
 
-                st.markdown("### 📄 Detailed Critical Sites Table")
-                if critical_df.empty:
-                    st.info("No critical issues found today ✅")
-                else:
-                    st.dataframe(critical_df, use_container_width=True)
+                    fig_abnormal_tab_bar.update_traces(
+                        marker_color=abnormal_bar_colors,
+                        textposition="outside"
+                    )
 
-            # Download
-            st.download_button(
-                "⬇️ Download Excel Report",
-                data=out_bytes,
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fig_abnormal_tab_bar.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=420,
+                        margin=dict(l=10, r=10, t=50, b=10)
+                    )
+
+                    fig_abnormal_tab_bar.update_xaxes(
+                        tickfont=dict(color="white", size=11),
+                        tickangle=-35
+                    )
+                    fig_abnormal_tab_bar.update_yaxes(
+                        tickfont=dict(color="white", size=11)
+                    )
+
+                    st.plotly_chart(fig_abnormal_tab_bar, use_container_width=True)
+
+            st.dataframe(abnormal_df, use_container_width=True)
+
+        # -------------------------------------------------------
+        # TAB 6 — CRITICAL SITES
+        # -------------------------------------------------------
+        with tab6:
+            st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
+
+            critical_df = build_critical_sites(abnormal_df)
+            critical_summary = build_critical_summary(lpcd_df, critical_df)
+
+            sev_order = ["HIGH", "MEDIUM", "LOW", "Normal"]
+            critical_color_map = {
+                "HIGH": "#FF4B4B",
+                "MEDIUM": "#F4A261",
+                "LOW": "#8FAADC",
+                "Normal": "#66C2A5"
+            }
+
+            if not critical_summary.empty:
+                critical_summary["Severity"] = pd.Categorical(
+                    critical_summary["Severity"],
+                    categories=sev_order,
+                    ordered=True
+                )
+                critical_summary = critical_summary.sort_values("Severity").reset_index(drop=True)
+
+            total_critical = len(critical_df)
+            high_cnt = int((critical_df["Severity Score"] == "HIGH").sum())
+            med_cnt = int((critical_df["Severity Score"] == "MEDIUM").sum())
+            low_cnt = int((critical_df["Severity Score"] == "LOW").sum())
+
+            base_sites_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+            base_sites_df["key"] = (
+                base_sites_df["Scheme Id"].astype(str).str.strip() + " | " +
+                base_sites_df["Scheme Name"].astype(str).str.strip()
             )
+            total_sites = base_sites_df["key"].nunique()
 
-        except Exception as e:
-            st.error("Error while generating report. Please check the uploaded file format/columns.")
-            st.exception(e)
+            if critical_df.empty:
+                normal_cnt = total_sites
+            else:
+                critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+                critical_keys_df["key"] = (
+                    critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
+                    critical_keys_df["Scheme Name"].astype(str).str.strip()
+                )
+                normal_cnt = max(total_sites - critical_keys_df["key"].nunique(), 0)
 
-else:
-    st.warning("Please upload the JJMUP export file to proceed.")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total Critical Sites", total_critical)
+            c2.metric("HIGH Severity", high_cnt)
+            c3.metric("MEDIUM Severity", med_cnt)
+            c4.metric("LOW Severity", low_cnt)
+            c5.metric("Normal", normal_cnt)
+
+            st.markdown("### 📊 Severity Distribution")
+            colA, colB = st.columns(2)
+
+            with colA:
+                make_donut_chart(
+                    critical_summary,
+                    "Severity",
+                    "Count",
+                    "Critical Sites — % wise",
+                    color_map=critical_color_map
+                )
+
+            with colB:
+                if critical_summary.empty:
+                    st.info("No data available for Critical Sites — Bar")
+                else:
+                    critical_bar_colors = [
+                        critical_color_map.get(v, "#4F81BD")
+                        for v in critical_summary["Severity"]
+                    ]
+
+                    fig_critical_bar = px.bar(
+                        critical_summary,
+                        x="Severity",
+                        y="Count",
+                        title="Critical Sites — Bar",
+                        text="Count"
+                    )
+
+                    fig_critical_bar.update_traces(
+                        marker_color=critical_bar_colors,
+                        textposition="outside"
+                    )
+
+                    fig_critical_bar.update_layout(
+                        **PLOTLY_DARK_THEME,
+                        height=420,
+                        margin=dict(l=10, r=10, t=50, b=10)
+                    )
+
+                    fig_critical_bar.update_xaxes(
+                        tickfont=dict(color="white", size=11),
+                        tickangle=-35,
+                        categoryorder="array",
+                        categoryarray=sev_order
+                    )
+                    fig_critical_bar.update_yaxes(
+                        tickfont=dict(color="white", size=11)
+                    )
+
+                    st.plotly_chart(fig_critical_bar, use_container_width=True)
+
+            st.markdown("### 📄 Detailed Critical Sites Table")
+            if critical_df.empty:
+                st.info("No critical issues found today ✅")
+            else:
+                st.dataframe(critical_df, use_container_width=True)
+
+        # Download
+        st.download_button(
+            "⬇️ Download Excel Report",
+            data=out_bytes,
+            file_name=out_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    except Exception as e:
+        st.error("Error while generating report. Please check the uploaded file format/columns.")
+        st.exception(e)
+
+       
+    
+
