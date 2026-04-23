@@ -601,8 +601,8 @@ def build_abnormal_sites(df: pd.DataFrame) -> pd.DataFrame:
     # Abnormal rules
     hydro_abnormal = hydro_vals.notna() & ~hydro_vals.between(15, 22.5, inclusive="both")
     chlorine_abnormal = chlorine_vals.notna() & ~chlorine_vals.between(0.15, 0.5, inclusive="both")
-    radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 5.5))
-    turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals > 0) & (turbidity_vals <= 5))
+    radar_abnormal = radar_vals.notna() & ~((radar_vals > 0) & (radar_vals <= 6.5))
+    turbidity_abnormal = turbidity_vals.notna() & ~((turbidity_vals >= 0) & (turbidity_vals <= 5))
     voltage_abnormal = voltage_vals.notna() & ((voltage_vals <= 0) | (voltage_vals < 215) | (voltage_vals > 240))
     lpcd_abnormal = lpcd_vals.notna() & (lpcd_vals < 55)
 
@@ -769,9 +769,9 @@ def apply_formatting(xlsx_bytes: bytes) -> bytes:
         notes = [
             ("Normal Hydrostatic Level", "15 to 22.5"),
             ("Normal Chlorine(PPM)", "0.15 to 0.5"),
-            ("Normal Radar Level", "0+ to 5.5"),
+            ("Normal Radar Level", "0+ to 6.5"),
             ("Normal Pressure(BAR)", "1.45 to 1.95"),
-            ("Normal Turbidity(NTU)", "0+ to 5"),
+            ("Normal Turbidity(NTU)", "0 to 5"),
             ("Normal Voltage", "215 to 240"),
             ("Normal LPCD", ">=55"),
             
