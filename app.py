@@ -1,4 +1,5 @@
 
+
 import requests
 
 import plotly.express as px
@@ -819,7 +820,7 @@ def create_output_excel(
         zero_df.to_excel(w, sheet_name="ZERO(INACTIVE SITES)", index=False)
         today_zero_df.to_excel(w, sheet_name="TODAY ZERO SITES", index=False)
         abnormal_df.to_excel(w, sheet_name="ABNORMAL SITES", index=False)
-        critical_df = build_critical_sites(abnormal_df)
+        critical_df = build_critical_sites(lpcd_df, abnormal_df)
         critical_df.to_excel(w, sheet_name="CRITICAL SITES", index=False)
 
     styled = apply_formatting(buffer.getvalue())
@@ -1061,22 +1062,26 @@ def build_abnormal_parameter_summary(abnormal_df):
 # -------------------------------------------------------
 # NEW CRITICAL SITES BUILDER (REPLACES OLD LOGIC)
 # -------------------------------------------------------
-def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
+def build_critical_sites(lpcd_df: pd.DataFrame, abnormal_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Create CRITICAL SITES sheet using only ABNORMAL SITES.
-    Columns:
-      Sr.no, Scheme Id, Scheme Name, Abnormality Count, Severity Score
-    Severity:
-      HIGH   = 6,7,8 abnormal KPIs
-      MEDIUM = 3,4,5 abnormal KPIs
-      LOW    = 1,2 abnormal KPIs
+    Create CRITICAL SITES sheet using:
+    - abnormal_df for HIGH / MEDIUM / LOW sites
+    - lpcd_df for Normal sites having zero abnormal KPIs
+
+    Output columns:
+    Sr.no, Scheme Id, Scheme Name, Abnormality Count, Severity Score
     """
 
-    if abnormal_df.empty:
-        return pd.DataFrame(columns=[
-            "Sr.no", "Scheme Id", "Scheme Name",
-            "Abnormality Count", "Severity Score"
-        ])
+    output_cols = [
+        "Sr.no",
+        "Scheme Id",
+        "Scheme Name",
+        "Abnormality Count",
+        "Severity Score"
+    ]
+
+    if lpcd_df.empty:
+        return pd.DataFrame(columns=output_cols)
 
     kpi_cols = [
         "Static Totalizer",
@@ -1089,35 +1094,91 @@ def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
         "Abnormal LPCD",
     ]
 
-    df = abnormal_df.copy()
+    critical_parts = []
 
-    # Count non‑blank abnormal KPIs
-    df["Abnormality Count"] = df[kpi_cols].notna().sum(axis=1)
+    # -----------------------------
+    # Abnormal sites: HIGH / MEDIUM / LOW
+    # -----------------------------
+    if not abnormal_df.empty:
+        ab_df = abnormal_df.copy()
 
-    # Severity classification
-    def severity(c):
-        if c >= 6:
-            return "HIGH"
-        elif c >= 3:
-            return "MEDIUM"
-        else:
-            return "LOW"
+        ab_df["Abnormality Count"] = ab_df[kpi_cols].notna().sum(axis=1)
 
-    df["Severity Score"] = df["Abnormality Count"].apply(severity)
+        def severity(c):
+            if c >= 6:
+                return "HIGH"
+            elif c >= 3:
+                return "MEDIUM"
+            else:
+                return "LOW"
 
-    # Select required columns, maintain your exact header spellings
-    df = df[[
-        "Sr.no",
-        "Scheme Id",
-        "Scheme Name",
-        "Abnormality Count",
-        "Severity Score",
-    ]].copy()
+        ab_df["Severity Score"] = ab_df["Abnormality Count"].apply(severity)
 
-    # Sorting → HIGH → MEDIUM → LOW, then count desc
-    severity_rank = {"HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        ab_df = ab_df[[
+            "Sr.no",
+            "Scheme Id",
+            "Scheme Name",
+            "Abnormality Count",
+            "Severity Score"
+        ]].copy()
+
+        critical_parts.append(ab_df)
+
+    # -----------------------------
+    # Normal sites: zero abnormal KPIs
+    # -----------------------------
+    base_df = lpcd_df[["Sno.", "Scheme Id", "Scheme Name"]].dropna(subset=["Scheme Id", "Scheme Name"]).copy()
+    base_df["key"] = (
+        base_df["Scheme Id"].astype(str).str.strip() + " | " +
+        base_df["Scheme Name"].astype(str).str.strip()
+    )
+
+    if abnormal_df.empty:
+        abnormal_keys = set()
+    else:
+        abnormal_keys_df = abnormal_df[["Scheme Id", "Scheme Name"]].dropna().copy()
+        abnormal_keys_df["key"] = (
+            abnormal_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
+            abnormal_keys_df["Scheme Name"].astype(str).str.strip()
+        )
+        abnormal_keys = set(abnormal_keys_df["key"].tolist())
+
+    normal_df = base_df[~base_df["key"].isin(abnormal_keys)].copy()
+
+    if not normal_df.empty:
+        normal_df = normal_df.rename(columns={"Sno.": "Sr.no"})
+        normal_df["Abnormality Count"] = 0
+        normal_df["Severity Score"] = "Normal"
+
+        normal_df = normal_df[[
+            "Sr.no",
+            "Scheme Id",
+            "Scheme Name",
+            "Abnormality Count",
+            "Severity Score"
+        ]].copy()
+
+        critical_parts.append(normal_df)
+
+    if not critical_parts:
+        return pd.DataFrame(columns=output_cols)
+
+    df = pd.concat(critical_parts, ignore_index=True)
+
+    # Sorting: HIGH -> MEDIUM -> LOW -> Normal
+    severity_rank = {
+        "HIGH": 1,
+        "MEDIUM": 2,
+        "LOW": 3,
+        "Normal": 4
+    }
+
     df["sev_rank"] = df["Severity Score"].map(severity_rank)
-    df = df.sort_values(["sev_rank", "Abnormality Count"], ascending=[True, False])
+    df = df.sort_values(
+        ["sev_rank", "Abnormality Count"],
+        ascending=[True, False]
+    )
+
     df = df.drop(columns=["sev_rank"]).reset_index(drop=True)
 
     return df
@@ -1126,44 +1187,23 @@ def build_critical_sites(abnormal_df: pd.DataFrame) -> pd.DataFrame:
 def build_critical_summary(lpcd_df: pd.DataFrame, critical_df: pd.DataFrame) -> pd.DataFrame:
     """
     Creates severity summary for dashboard charts:
-    HIGH, MEDIUM, LOW from critical_df
-    + Normal from sites having zero abnormal KPIs.
+    HIGH, MEDIUM, LOW, Normal.
     """
-    if lpcd_df.empty:
-        return pd.DataFrame(columns=["Severity", "Count"])
-
-    base_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-    base_df["key"] = (
-        base_df["Scheme Id"].astype(str).str.strip() + " | " +
-        base_df["Scheme Name"].astype(str).str.strip()
-    )
-    total_sites = base_df["key"].nunique()
 
     if critical_df.empty:
-        summary = pd.DataFrame({
-            "Severity": ["HIGH", "MEDIUM", "LOW", "Normal"],
-            "Count": [0, 0, 0, total_sites]
-        })
-        return summary[summary["Count"] > 0].reset_index(drop=True)
+        return pd.DataFrame(columns=["Severity", "Count"])
 
-    critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-    critical_keys_df["key"] = (
-        critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
-        critical_keys_df["Scheme Name"].astype(str).str.strip()
+    summary = (
+        critical_df["Severity Score"]
+        .value_counts()
+        .rename_axis("Severity")
+        .reset_index(name="Count")
     )
-    critical_site_count = critical_keys_df["key"].nunique()
 
-    high_count = (critical_df["Severity Score"] == "HIGH").sum()
-    medium_count = (critical_df["Severity Score"] == "MEDIUM").sum()
-    low_count = (critical_df["Severity Score"] == "LOW").sum()
-    normal_count = max(total_sites - critical_site_count, 0)
+    order = ["HIGH", "MEDIUM", "LOW", "Normal"]
+    summary["order"] = summary["Severity"].apply(lambda x: order.index(x) if x in order else 999)
+    summary = summary.sort_values("order").drop(columns="order").reset_index(drop=True)
 
-    summary = pd.DataFrame({
-        "Severity": ["HIGH", "MEDIUM", "LOW", "Normal"],
-        "Count": [high_count, medium_count, low_count, normal_count]
-    })
-
-    summary = summary[summary["Count"] > 0].reset_index(drop=True)
     return summary
 
 # ---------------------------
@@ -1286,7 +1326,6 @@ if st.button("Generate Report", type="primary"):
             st.markdown(f"## 📊 Overview Dashboard : {st.session_state['prefetched_source_name']}")
         else:
             st.markdown("## 📊 Overview Dashboard")
-
 
         # Build summaries
         status_summary = build_site_status_summary(lpcd_df, less_df, zero_df, today_zero_df, abnormal_df, threshold)
@@ -1660,7 +1699,7 @@ if st.button("Generate Report", type="primary"):
         with tab6:
             st.subheader("🚨 Critical Sites (Based on 8 KPIs)")
 
-            critical_df = build_critical_sites(abnormal_df)
+            critical_df = build_critical_sites(lpcd_df, abnormal_df)
             critical_summary = build_critical_summary(lpcd_df, critical_df)
 
             sev_order = ["HIGH", "MEDIUM", "LOW", "Normal"]
@@ -1679,27 +1718,11 @@ if st.button("Generate Report", type="primary"):
                 )
                 critical_summary = critical_summary.sort_values("Severity").reset_index(drop=True)
 
-            total_critical = len(critical_df)
+            total_critical = int((critical_df["Severity Score"] != "Normal").sum())
             high_cnt = int((critical_df["Severity Score"] == "HIGH").sum())
             med_cnt = int((critical_df["Severity Score"] == "MEDIUM").sum())
             low_cnt = int((critical_df["Severity Score"] == "LOW").sum())
-
-            base_sites_df = lpcd_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-            base_sites_df["key"] = (
-                base_sites_df["Scheme Id"].astype(str).str.strip() + " | " +
-                base_sites_df["Scheme Name"].astype(str).str.strip()
-            )
-            total_sites = base_sites_df["key"].nunique()
-
-            if critical_df.empty:
-                normal_cnt = total_sites
-            else:
-                critical_keys_df = critical_df[["Scheme Id", "Scheme Name"]].dropna().copy()
-                critical_keys_df["key"] = (
-                    critical_keys_df["Scheme Id"].astype(str).str.strip() + " | " +
-                    critical_keys_df["Scheme Name"].astype(str).str.strip()
-                )
-                normal_cnt = max(total_sites - critical_keys_df["key"].nunique(), 0)
+            normal_cnt = int((critical_df["Severity Score"] == "Normal").sum())
 
             c1, c2, c3, c4, c5 = st.columns(5)
             c1.metric("Total Critical Sites", total_critical)
@@ -1761,10 +1784,7 @@ if st.button("Generate Report", type="primary"):
                     st.plotly_chart(fig_critical_bar, use_container_width=True)
 
             st.markdown("### 📄 Detailed Critical Sites Table")
-            if critical_df.empty:
-                st.info("No critical issues found today ✅")
-            else:
-                st.dataframe(critical_df, use_container_width=True)
+            st.dataframe(critical_df, use_container_width=True)
 
         # Download
         st.download_button(
