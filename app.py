@@ -470,6 +470,583 @@ def apply_dark_bright_toggle():
             unsafe_allow_html=True
         )   
 
+def apply_dark_bright_toggle():
+    """
+    Adds only a Dark/Bright icon at the top-right corner.
+    No version pill is shown.
+    """
+
+    if "theme_mode" not in st.session_state:
+        st.session_state["theme_mode"] = "dark"
+
+    st.markdown(
+        """
+        <style>
+        /* Fixed top-right theme toggle container */
+        .theme-toggle-fixed {
+            position: fixed;
+            top: 14px;
+            right: 18px;
+            z-index: 999999;
+        }
+
+        /* Style only the theme toggle button */
+        div[data-testid="stButton"] button[title="Switch Dark / Bright mode"] {
+            width: 54px !important;
+            height: 46px !important;
+            min-height: 46px !important;
+            padding: 0 !important;
+            border-radius: 14px !important;
+            background: rgba(255,255,255,0.92) !important;
+            color: #111827 !important;
+            border: 1px solid rgba(15,23,42,0.14) !important;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.20) !important;
+            font-size: 1.15rem !important;
+        }
+
+        div[data-testid="stButton"] button[title="Switch Dark / Bright mode"]:hover {
+            background: rgba(255,255,255,1) !important;
+            color: #111827 !important;
+            border: 1px solid rgba(15,23,42,0.22) !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col_left, col_right = st.columns([12, 1])
+
+    with col_right:
+        toggle_label = "☀️" if st.session_state["theme_mode"] == "dark" else "🌙"
+
+        if st.button(toggle_label, key="dark_bright_toggle_btn", help="Switch Dark / Bright mode"):
+            if st.session_state["theme_mode"] == "dark":
+                st.session_state["theme_mode"] = "bright"
+            else:
+                st.session_state["theme_mode"] = "dark"
+
+    if st.session_state["theme_mode"] == "bright":
+        st.markdown(
+            f"""
+            <style>
+            /* =========================
+               BRIGHT MODE BACKGROUND
+               ========================= */
+            [data-testid="stAppViewContainer"] {{
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.52), rgba(255,255,255,0.52)),
+                    url("data:image/jpeg;base64,{BACKGROUND_B64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }}
+
+            /* =========================
+               BRIGHT MODE MAIN CARD
+               ========================= */
+            [data-testid="stAppViewContainer"] .block-container {{
+                background: rgba(255,255,255,0.74) !important;
+                border: 1px solid rgba(15,23,42,0.14) !important;
+                box-shadow: 0 12px 28px rgba(15,23,42,0.22) !important;
+                backdrop-filter: blur(8px) !important;
+                -webkit-backdrop-filter: blur(8px) !important;
+            }}
+
+            /* =========================
+               BRIGHT MODE TEXT
+               ========================= */
+            h1, h2, h3, h4, h5, h6, p, label,
+            .stMarkdown, .stText, .stTitle, .stSubheader, .stCaption {{
+                color: #111827 !important;
+            }}
+
+            /* =========================
+               BRIGHT MODE FILE UPLOADER
+               ========================= */
+            [data-testid="stFileUploader"] section {{
+                background: rgba(15,23,42,0.08) !important;
+                border: 1px solid rgba(15,23,42,0.18) !important;
+            }}
+
+            [data-testid="stFileUploader"] section * {{
+                color: #111827 !important;
+                font-weight: 700 !important;
+            }}
+
+            [data-testid="stFileUploaderFile"],
+            [data-testid="stFileUploader"] li {{
+                background: rgba(255,255,255,0.75) !important;
+                border: 1px solid rgba(15,23,42,0.15) !important;
+            }}
+
+            [data-testid="stFileUploaderFile"] span,
+            [data-testid="stFileUploaderFile"] p,
+            [data-testid="stFileUploaderFile"] small {{
+                color: #111827 !important;
+            }}
+
+            /* =========================
+               BRIGHT MODE EXPANDERS
+               ========================= */
+            details {{
+                background: rgba(255,255,255,0.68) !important;
+                border: 1px solid rgba(15,23,42,0.16) !important;
+            }}
+
+            details summary {{
+                background: rgba(255,255,255,0.82) !important;
+                border: 1px solid rgba(15,23,42,0.16) !important;
+                color: #111827 !important;
+            }}
+
+            /* =========================
+               BRIGHT MODE ALERTS
+               ========================= */
+            [data-testid="stAlert"] {{
+                box-shadow: 0 8px 18px rgba(15,23,42,0.18) !important;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )   
+
+def apply_dark_bright_toggle():
+    """
+    Three separate UI modes:
+    Dark mode is default.
+    Bright mode is clean light UI.
+    Rain mode is dark UI with rain and thunderstorm.
+    """
+
+    if "theme_mode" not in st.session_state:
+        st.session_state["theme_mode"] = "dark"
+
+    st.markdown(
+        """
+        <style>
+        .st-key-theme_dark_btn,
+        .st-key-theme_bright_btn,
+        .st-key-theme_rain_btn {
+            position: fixed !important;
+            top: 70px !important;
+            z-index: 2147483647 !important;
+            width: 48px !important;
+            height: 44px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .st-key-theme_dark_btn {
+            right: 124px !important;
+        }
+
+        .st-key-theme_bright_btn {
+            right: 70px !important;
+        }
+
+        .st-key-theme_rain_btn {
+            right: 16px !important;
+        }
+
+        .st-key-theme_dark_btn button,
+        .st-key-theme_bright_btn button,
+        .st-key-theme_rain_btn button {
+            width: 48px !important;
+            height: 44px !important;
+            min-height: 44px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: 14px !important;
+            background: rgba(255,255,255,0.94) !important;
+            color: #111827 !important;
+            border: 1px solid rgba(15,23,42,0.18) !important;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.24) !important;
+            font-size: 1.12rem !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+        }
+
+        .st-key-theme_dark_btn button:hover,
+        .st-key-theme_bright_btn button:hover,
+        .st-key-theme_rain_btn button:hover {
+            background: #ffffff !important;
+            color: #111827 !important;
+            border: 1px solid rgba(15,23,42,0.30) !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.30) !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button("🌙", key="theme_dark_btn", help="Dark mode"):
+        st.session_state["theme_mode"] = "dark"
+
+    if st.button("☀️", key="theme_bright_btn", help="Bright mode"):
+        st.session_state["theme_mode"] = "bright"
+
+    if st.button("🌧️", key="theme_rain_btn", help="Rain mode"):
+        st.session_state["theme_mode"] = "rain"
+
+    current_mode = st.session_state.get("theme_mode", "dark")
+
+    if current_mode == "dark":
+        st.markdown(
+            """
+            <style>
+            .st-key-theme_dark_btn button {
+                background: #111827 !important;
+                color: #ffffff !important;
+                border: 1px solid rgba(255,255,255,0.35) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+    if current_mode == "bright":
+        st.markdown(
+            """
+            <style>
+            .st-key-theme_bright_btn button {
+                background: #facc15 !important;
+                color: #111827 !important;
+                border: 1px solid rgba(15,23,42,0.28) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+    if current_mode == "rain":
+        st.markdown(
+            """
+            <style>
+            .st-key-theme_rain_btn button {
+                background: #2563eb !important;
+                color: #ffffff !important;
+                border: 1px solid rgba(255,255,255,0.35) !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+    if current_mode == "bright":
+        st.markdown(
+            f"""
+            <style>
+            [data-testid="stAppViewContainer"] {{
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.52), rgba(255,255,255,0.52)),
+                    url("data:image/jpeg;base64,{BACKGROUND_B64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }}
+
+            [data-testid="stAppViewContainer"] .block-container {{
+                background: rgba(255,255,255,0.76) !important;
+                border: 1px solid rgba(15,23,42,0.14) !important;
+                box-shadow: 0 12px 28px rgba(15,23,42,0.22) !important;
+                backdrop-filter: blur(8px) !important;
+                -webkit-backdrop-filter: blur(8px) !important;
+            }}
+
+            h1, h2, h3, h4, h5, h6, p, label,
+            .stMarkdown, .stText, .stTitle, .stSubheader, .stCaption {{
+                color: #111827 !important;
+            }}
+
+            input, textarea, select {{
+                background-color: rgba(255,255,255,0.96) !important;
+                color: #111827 !important;
+                border-radius: 10px !important;
+            }}
+
+            [data-testid="stNumberInput"] input {{
+                background-color: rgba(255,255,255,0.96) !important;
+                color: #111827 !important;
+            }}
+
+            [data-testid="stNumberInput"] label,
+            [data-testid="stSlider"] label,
+            [data-testid="stSelectbox"] label,
+            [data-testid="stMultiSelect"] label,
+            [data-testid="stTextInput"] label {{
+                color: #111827 !important;
+            }}
+
+            [data-testid="stFileUploader"] section {{
+                background: rgba(15,23,42,0.08) !important;
+                border: 1px solid rgba(15,23,42,0.18) !important;
+            }}
+
+            [data-testid="stFileUploader"] section * {{
+                color: #111827 !important;
+                font-weight: 700 !important;
+            }}
+
+            [data-testid="stFileUploaderFile"],
+            [data-testid="stFileUploader"] li {{
+                background: rgba(255,255,255,0.75) !important;
+                border: 1px solid rgba(15,23,42,0.15) !important;
+            }}
+
+            [data-testid="stFileUploaderFile"] span,
+            [data-testid="stFileUploaderFile"] p,
+            [data-testid="stFileUploaderFile"] small {{
+                color: #111827 !important;
+            }}
+
+            details {{
+                background: rgba(255,255,255,0.68) !important;
+                border: 1px solid rgba(15,23,42,0.16) !important;
+            }}
+
+            details summary {{
+                background: rgba(255,255,255,0.82) !important;
+                border: 1px solid rgba(15,23,42,0.16) !important;
+                color: #111827 !important;
+            }}
+
+            [data-testid="stAlert"] {{
+                box-shadow: 0 8px 18px rgba(15,23,42,0.18) !important;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )   
+
+def apply_dark_mode_weather_effect():
+    """
+    Adds full-screen fine drizzle rain and bright thunderstorm flash only in Dark mode.
+    Bright mode remains clean.
+    Drop length and count slightly increased. Falling speed unchanged.
+    """
+
+    if st.session_state.get("theme_mode", "dark") != "rain":
+        return
+
+    st.markdown(
+        """
+        <style>
+        html {
+            overflow-x: hidden !important;
+        }
+
+        body {
+            overflow-x: hidden !important;
+        }
+
+        [data-testid="stAppViewContainer"]::before {
+            content: "";
+            position: fixed !important;
+            top: -12vh !important;
+            left: -12vw !important;
+            width: 124vw !important;
+            height: 124vh !important;
+            pointer-events: none !important;
+            z-index: 2147483000 !important;
+            opacity: 0.92 !important;
+            transform: rotate(-8deg);
+
+            background-image:
+                radial-gradient(
+                    ellipse 0.70px 17px at 18% 12%,
+                    rgba(235,242,255,0.54) 0%,
+                    rgba(235,242,255,0.54) 58%,
+                    transparent 72%
+                ),
+                radial-gradient(
+                    ellipse 0.70px 16px at 56% 38%,
+                    rgba(235,242,255,0.50) 0%,
+                    rgba(235,242,255,0.50) 58%,
+                    transparent 72%
+                ),
+                radial-gradient(
+                    ellipse 0.65px 15px at 82% 69%,
+                    rgba(235,242,255,0.44) 0%,
+                    rgba(235,242,255,0.44) 58%,
+                    transparent 72%
+                ),
+                radial-gradient(
+                    ellipse 0.65px 15px at 36% 78%,
+                    rgba(235,242,255,0.42) 0%,
+                    rgba(235,242,255,0.42) 58%,
+                    transparent 72%
+                );
+
+            background-size:
+                135px 180px,
+                175px 230px,
+                220px 285px,
+                260px 335px;
+
+            background-position:
+                0px -210px,
+                60px -270px,
+                125px -330px,
+                190px -390px;
+
+            animation: shortDrizzleLayerOne 1.18s linear infinite;
+        }
+
+        @keyframes shortDrizzleLayerOne {
+            0% {
+                background-position:
+                    0px -210px,
+                    60px -270px,
+                    125px -330px,
+                    190px -390px;
+            }
+
+            100% {
+                background-position:
+                    -65px 210px,
+                    -42px 270px,
+                    25px 330px,
+                    90px 390px;
+            }
+        }
+
+        body::before {
+            content: "";
+            position: fixed !important;
+            top: -12vh !important;
+            left: -12vw !important;
+            width: 124vw !important;
+            height: 124vh !important;
+            pointer-events: none !important;
+            z-index: 2147482999 !important;
+            opacity: 0.76 !important;
+            transform: rotate(-8deg);
+
+            background-image:
+                radial-gradient(
+                    ellipse 0.65px 15px at 28% 22%,
+                    rgba(235,242,255,0.44) 0%,
+                    rgba(235,242,255,0.44) 58%,
+                    transparent 72%
+                ),
+                radial-gradient(
+                    ellipse 0.60px 14px at 74% 58%,
+                    rgba(235,242,255,0.38) 0%,
+                    rgba(235,242,255,0.38) 58%,
+                    transparent 72%
+                ),
+                radial-gradient(
+                    ellipse 0.60px 14px at 48% 86%,
+                    rgba(235,242,255,0.36) 0%,
+                    rgba(235,242,255,0.36) 58%,
+                    transparent 72%
+                );
+
+            background-size:
+                190px 250px,
+                250px 330px,
+                315px 420px;
+
+            background-position:
+                55px -290px,
+                155px -390px,
+                235px -480px;
+
+            animation: shortDrizzleLayerTwo 1.45s linear infinite;
+        }
+
+        @keyframes shortDrizzleLayerTwo {
+            0% {
+                background-position:
+                    55px -290px,
+                    155px -390px,
+                    235px -480px;
+            }
+
+            100% {
+                background-position:
+                    -55px 290px,
+                    40px 390px,
+                    120px 480px;
+            }
+        }
+
+        [data-testid="stAppViewContainer"]::after {
+            content: "";
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            pointer-events: none !important;
+            z-index: 2147483001 !important;
+            opacity: 0;
+            mix-blend-mode: screen;
+
+            background:
+                radial-gradient(
+                    circle at 68% 7%,
+                    rgba(255,255,255,1.00),
+                    rgba(255,255,255,0.72) 12%,
+                    rgba(255,255,255,0.30) 26%,
+                    rgba(255,255,255,0.08) 42%,
+                    rgba(255,255,255,0.00) 62%
+                ),
+                linear-gradient(
+                    rgba(255,255,255,0.42),
+                    rgba(255,255,255,0.12),
+                    rgba(255,255,255,0.00)
+                );
+
+            animation: brightStormFlash 6.2s infinite;
+        }
+
+        @keyframes brightStormFlash {
+            0%, 62%, 100% {
+                opacity: 0;
+            }
+
+            63% {
+                opacity: 1;
+            }
+
+            64% {
+                opacity: 0.18;
+            }
+
+            65% {
+                opacity: 0.95;
+            }
+
+            66% {
+                opacity: 0.12;
+            }
+
+            67% {
+                opacity: 0.78;
+            }
+
+            68%, 100% {
+                opacity: 0;
+            }
+        }
+
+        body::before,
+        [data-testid="stAppViewContainer"]::before,
+        [data-testid="stAppViewContainer"]::after {
+            pointer-events: none !important;
+        }
+
+        header,
+        .st-key-dark_bright_toggle_btn,
+        .st-key-dark_bright_toggle_btn button {
+            z-index: 2147483647 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # ---------------------------
@@ -1447,6 +2024,7 @@ def build_critical_summary(lpcd_df: pd.DataFrame, critical_df: pd.DataFrame) -> 
 st.set_page_config(page_title="UNIVERSAL MEP JJM SWSM Daily Report", layout="wide")
 apply_branding()
 apply_dark_bright_toggle()
+apply_dark_mode_weather_effect()
 
 st.title("UNIVERSAL MEP JJM SWSM Daily Report Generator")
 
